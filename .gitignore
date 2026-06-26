@@ -1,0 +1,41 @@
+# Maven build output
+target/
+
+# Java compiled files
+*.class
+
+# WAR/JAR packages
+*.war
+*.jar
+*.ear
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Tomcat temp/cache
+work/
+temp/
+
+# Runtime uploads/temp files
+upload/
+uploads/
+
+# Maven local wrapper files if not used
+.mvn/wrapper/maven-wrapper.jar
+
+# Backup files
+*.bak
+*.tmp
+
+# Sensitive config backups
+*.env

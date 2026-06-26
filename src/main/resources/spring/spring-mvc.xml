@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+         http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd
+         http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- 扫描 Controller 与拦截器 -->
+    <context:component-scan base-package="cn.edu.library.controller,cn.edu.library.interceptor"/>
+
+    <!-- 开启 SpringMVC 注解驱动 -->
+    <mvc:annotation-driven/>
+
+    <!-- 静态资源放行 -->
+    <mvc:resources mapping="/assets/**" location="/assets/"/>
+
+    <!-- JSP 视图解析器 -->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix" value="/WEB-INF/views/"/>
+        <property name="suffix" value=".jsp"/>
+    </bean>
+
+    <!-- 文件上传解析器，后续做导入功能时可以直接使用 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="maxUploadSize" value="10485760"/>
+    </bean>
+
+    <!-- 登录与权限拦截器 -->
+    <mvc:interceptors>
+        <mvc:interceptor>
+            <mvc:mapping path="/**"/>
+            <mvc:exclude-mapping path="/login"/>
+            <mvc:exclude-mapping path="/logout"/>
+            <mvc:exclude-mapping path="/assets/**"/>
+            <bean class="cn.edu.library.interceptor.LoginInterceptor"/>
+        </mvc:interceptor>
+    </mvc:interceptors>
+</beans>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.library.mapper.BorrowMapper">
+    <resultMap id="BorrowMap" type="BorrowRecord">
+        <id column="id" property="id"/>
+        <result column="reader_id" property="readerId"/>
+        <result column="book_id" property="bookId"/>
+        <result column="borrow_time" property="borrowTime"/>
+        <result column="due_time" property="dueTime"/>
+        <result column="return_time" property="returnTime"/>
+        <result column="status" property="status"/>
+        <result column="overdue_days" property="overdueDays"/>
+        <result column="fine" property="fine"/>
+        <result column="create_time" property="createTime"/>
+        <result column="reader_no" property="readerNo"/>
+        <result column="reader_name" property="readerName"/>
+        <result column="book_no" property="bookNo"/>
+        <result column="book_name" property="bookName"/>
+        <result column="category" property="category"/>
+    </resultMap>
+
+    <sql id="BorrowJoinSql">
+        SELECT br.*, r.reader_no, r.name AS reader_name, b.book_no, b.book_name, b.category
+        FROM borrow_record br
+        LEFT JOIN reader r ON br.reader_id = r.id
+        LEFT JOIN book b ON br.book_id = b.id
+    </sql>
+
+    <select id="findById" resultMap="BorrowMap">
+        <include refid="BorrowJoinSql"/>
+        WHERE br.id = #{id}
+    </select>
+
+    <select id="search" resultMap="BorrowMap">
+        <include refid="BorrowJoinSql"/>
+        WHERE 1 = 1
+        <if test="status != null and status != ''">
+            AND br.status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (r.reader_no LIKE CONCAT('%', #{keyword}, '%')
+                 OR r.name LIKE CONCAT('%', #{keyword}, '%')
+                 OR b.book_no LIKE CONCAT('%', #{keyword}, '%')
+                 OR b.book_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY br.id DESC
+    </select>
+
+    <select id="findByReaderId" resultMap="BorrowMap">
+        <include refid="BorrowJoinSql"/>
+        WHERE br.reader_id = #{readerId}
+        ORDER BY br.id DESC
+    </select>
+
+    <insert id="insert" parameterType="BorrowRecord" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO borrow_record(reader_id, book_id, borrow_time, due_time, status, overdue_days, fine, create_time)
+        VALUES(#{readerId}, #{bookId}, #{borrowTime}, #{dueTime}, 'BORROWED', 0, 0, NOW())
+    </insert>
+
+    <update id="returnBook" parameterType="BorrowRecord">
+        UPDATE borrow_record
+        SET return_time = #{returnTime}, status = #{status}, overdue_days = #{overdueDays}, fine = #{fine}
+        WHERE id = #{id} AND status = 'BORROWED'
+    </update>
+
+    <select id="countBorrowed" resultType="int">
+        SELECT COUNT(1) FROM borrow_record WHERE status = 'BORROWED'
+    </select>
+
+    <select id="countOverdue" resultType="int">
+        SELECT COUNT(1) FROM borrow_record WHERE status = 'BORROWED' AND due_time &lt; NOW()
+    </select>
+
+    <select id="countBorrowingByReaderAndBook" resultType="int">
+        SELECT COUNT(1) FROM borrow_record
+        WHERE reader_id = #{readerId} AND book_id = #{bookId} AND status = 'BORROWED'
+    </select>
+</mapper>

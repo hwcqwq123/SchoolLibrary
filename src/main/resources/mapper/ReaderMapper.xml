@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.library.mapper.ReaderMapper">
+    <resultMap id="ReaderMap" type="Reader">
+        <id column="id" property="id"/>
+        <result column="reader_no" property="readerNo"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="name" property="name"/>
+        <result column="gender" property="gender"/>
+        <result column="phone" property="phone"/>
+        <result column="email" property="email"/>
+        <result column="department" property="department"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="findById" resultMap="ReaderMap">
+        SELECT * FROM reader WHERE id = #{id}
+    </select>
+
+    <select id="findByReaderNo" resultMap="ReaderMap">
+        SELECT * FROM reader WHERE reader_no = #{readerNo} AND status = 1
+    </select>
+
+    <select id="search" resultMap="ReaderMap">
+        SELECT * FROM reader
+        WHERE status = 1
+        <if test="keyword != null and keyword != ''">
+            AND (reader_no LIKE CONCAT('%', #{keyword}, '%')
+                 OR name LIKE CONCAT('%', #{keyword}, '%')
+                 OR phone LIKE CONCAT('%', #{keyword}, '%')
+                 OR department LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="Reader" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO reader(reader_no, username, password, name, gender, phone, email, department, status, create_time)
+        VALUES(#{readerNo}, #{username}, #{password}, #{name}, #{gender}, #{phone}, #{email}, #{department}, 1, NOW())
+    </insert>
+
+    <update id="update" parameterType="Reader">
+        UPDATE reader
+        SET name = #{name}, gender = #{gender}, phone = #{phone}, email = #{email}, department = #{department}
+        WHERE id = #{id}
+    </update>
+
+    <update id="disable">
+        UPDATE reader SET status = 0 WHERE id = #{id}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE reader SET password = #{password} WHERE id = #{id}
+    </update>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM reader WHERE status = 1
+    </select>
+</mapper>

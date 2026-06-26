@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.library.mapper.BookMapper">
+    <resultMap id="BookMap" type="Book">
+        <id column="id" property="id"/>
+        <result column="book_no" property="bookNo"/>
+        <result column="book_name" property="bookName"/>
+        <result column="author" property="author"/>
+        <result column="publisher" property="publisher"/>
+        <result column="category" property="category"/>
+        <result column="total_count" property="totalCount"/>
+        <result column="available_count" property="availableCount"/>
+        <result column="location" property="location"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BookMap">
+        SELECT * FROM book WHERE id = #{id}
+    </select>
+
+    <select id="findByBookNo" resultMap="BookMap">
+        SELECT * FROM book WHERE book_no = #{bookNo} AND status = 1
+    </select>
+
+    <select id="search" resultMap="BookMap">
+        SELECT * FROM book
+        WHERE status = 1
+        <if test="keyword != null and keyword != ''">
+            AND (book_no LIKE CONCAT('%', #{keyword}, '%')
+                 OR book_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR author LIKE CONCAT('%', #{keyword}, '%')
+                 OR publisher LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+        ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="Book" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO book(book_no, book_name, author, publisher, category, total_count, available_count, location, status, create_time)
+        VALUES(#{bookNo}, #{bookName}, #{author}, #{publisher}, #{category}, #{totalCount}, #{availableCount}, #{location}, 1, NOW())
+    </insert>
+
+    <update id="update" parameterType="Book">
+        UPDATE book
+        SET book_name = #{bookName}, author = #{author}, publisher = #{publisher}, category = #{category},
+            total_count = #{totalCount}, available_count = #{availableCount}, location = #{location}
+        WHERE id = #{id}
+    </update>
+
+    <update id="delete">
+        UPDATE book SET status = 0 WHERE id = #{id}
+    </update>
+
+    <update id="decreaseAvailable">
+        UPDATE book SET available_count = available_count - 1 WHERE id = #{id} AND available_count &gt; 0
+    </update>
+
+    <update id="increaseAvailable">
+        UPDATE book SET available_count = available_count + 1 WHERE id = #{id}
+    </update>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM book WHERE status = 1
+    </select>
+</mapper>
