@@ -1,20 +1,19 @@
 package cn.edu.library.controller;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
+import cn.edu.library.entity.Admin;
+import cn.edu.library.entity.Reader;
+import cn.edu.library.service.AdminService;
+import cn.edu.library.service.ReaderService;
+import cn.edu.library.util.Md5Util;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import cn.edu.library.entity.Admin;
-import cn.edu.library.entity.Reader;
-import cn.edu.library.service.AdminService;
-import cn.edu.library.service.ReaderService;
-import cn.edu.library.util.Md5Util;
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 /**
  * 登录控制器
@@ -29,8 +28,7 @@ public class LoginController {
     private ReaderService readerService;
 
     /**
-     * 【本次修改】
-     * 登录页入口。
+     * 【本次修改】登录页入口。
      */
     @GetMapping({"/login", "/"})
     public String loginPage(HttpServletRequest request) {
@@ -39,18 +37,16 @@ public class LoginController {
         System.out.println("requestURI = " + request.getRequestURI());
         System.out.println("contextPath = " + request.getContextPath());
         System.out.println("==================================");
-
         return "login";
     }
 
     /**
-     * 【本次修改】
-     * 登录逻辑。
+     * 【本次修改】登录成功后统一写入 userType + loginRole。
      *
      * 修复点：
-     * 1. 登录成功后同时写入 userType 和 loginRole。
-     * 2. 避免 LoginInterceptor 读取 loginRole 为空导致重新跳回登录页。
-     * 3. 保留 Debug 日志，方便继续定位后续问题。
+     * 1. LoginInterceptor 旧逻辑会读取 loginRole。
+     * 2. v2 新逻辑会读取 userType。
+     * 3. 两个字段同时写入，避免登录成功后又被拦截器踢回 /login。
      */
     @PostMapping("/login")
     public String login(@RequestParam String username,
@@ -81,19 +77,9 @@ public class LoginController {
 
         if ("admin".equals(loginType)) {
             System.out.println("[LOGIN STEP] 当前选择身份：管理员");
-
             Admin admin = tryAdminLogin(loginName, rawPassword, md5Lower, md5Upper);
 
             if (admin != null) {
-                /*
-                 * 【本次修改】
-                 * 关键修复：
-                 * 这里同时设置 userType 和 loginRole。
-                 *
-                 * userType：新代码使用。
-                 * loginRole：兼容旧 LoginInterceptor。
-                 * adminRole：记录 SUPER_ADMIN / ADMIN。
-                 */
                 session.setAttribute("loginUser", admin);
                 session.setAttribute("userType", "ADMIN");
                 session.setAttribute("loginRole", "ADMIN");
@@ -117,14 +103,9 @@ public class LoginController {
 
         if ("reader".equals(loginType)) {
             System.out.println("[LOGIN STEP] 当前选择身份：读者");
-
             Reader reader = tryReaderLogin(loginName, rawPassword, md5Lower, md5Upper);
 
             if (reader != null) {
-                /*
-                 * 【本次修改】
-                 * 读者同样同时设置 userType 和 loginRole。
-                 */
                 session.setAttribute("loginUser", reader);
                 session.setAttribute("userType", "READER");
                 session.setAttribute("loginRole", "READER");
@@ -155,14 +136,11 @@ public class LoginController {
         System.out.println("return view = login");
         System.out.println("========== [LOGIN DEBUG END] ==========");
         System.out.println();
-
         return "login";
     }
 
     /**
-     * 【本次修改】
-     * 管理员登录尝试。
-     * 兼容明文、MD5 小写、MD5 大写。
+     * 【本次修改】管理员登录尝试：兼容明文、MD5 小写、MD5 大写。
      */
     private Admin tryAdminLogin(String username, String rawPassword, String md5Lower, String md5Upper) {
         System.out.println("[ADMIN LOGIN TRY] password type = raw");
@@ -191,9 +169,7 @@ public class LoginController {
     }
 
     /**
-     * 【本次修改】
-     * 读者登录尝试。
-     * 兼容明文、MD5 小写、MD5 大写。
+     * 【本次修改】读者登录尝试：兼容明文、MD5 小写、MD5 大写。
      */
     private Reader tryReaderLogin(String username, String rawPassword, String md5Lower, String md5Upper) {
         System.out.println("[READER LOGIN TRY] password type = raw");
@@ -222,8 +198,7 @@ public class LoginController {
     }
 
     /**
-     * 【本次修改】
-     * 退出登录。
+     * 【本次修改】退出登录。
      */
     @GetMapping("/logout")
     public String logout(HttpSession session) {
@@ -232,7 +207,6 @@ public class LoginController {
         session.invalidate();
         System.out.println("redirect target = /login");
         System.out.println("==============================");
-
         return "redirect:/login";
     }
 }
