@@ -1,36 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
-         version="4.0">
+         xsi:schemaLocation="
+             http://xmlns.jcp.org/xml/ns/javaee
+             http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+         version="3.1">
 
     <display-name>SchoolLibrary</display-name>
 
-    <!-- Spring 根容器：加载 Service、MyBatis、事务 -->
+    <!-- 【本次保留】Spring 根容器配置 -->
     <context-param>
         <param-name>contextConfigLocation</param-name>
         <param-value>classpath:spring/spring-mybatis.xml</param-value>
     </context-param>
+
+    <!-- 【本次保留】Spring 容器监听器 -->
     <listener>
         <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
     </listener>
 
-    <!-- SpringMVC 前端控制器 -->
-    <servlet>
-        <servlet-name>dispatcher</servlet-name>
-        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
-        <init-param>
-            <param-name>contextConfigLocation</param-name>
-            <param-value>classpath:spring/spring-mvc.xml</param-value>
-        </init-param>
-        <load-on-startup>1</load-on-startup>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>dispatcher</servlet-name>
-        <url-pattern>/</url-pattern>
-    </servlet-mapping>
-
-    <!-- 统一字符编码，避免中文乱码 -->
+    <!-- 【本次保留】编码过滤器，必须放在 DebugFilter 前面，保证中文参数正常 -->
     <filter>
         <filter-name>encodingFilter</filter-name>
         <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
@@ -43,12 +33,53 @@
             <param-value>true</param-value>
         </init-param>
     </filter>
+
     <filter-mapping>
         <filter-name>encodingFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
+    <!--
+        【本次新增】全链路 Debug 过滤器
+
+        用途：
+        1. 打印 /login 是否收到 POST 请求。
+        2. 打印 username、userType 等参数。
+        3. 打印最终状态码。
+        4. 打印 redirect 跳转地址。
+    -->
+    <filter>
+        <filter-name>debugFilter</filter-name>
+        <filter-class>cn.edu.library.filter.DebugFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>debugFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- 【本次保留】SpringMVC 前端控制器 -->
+    <servlet>
+        <servlet-name>dispatcher</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+
+        <init-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>classpath:spring/spring-mvc.xml</param-value>
+        </init-param>
+
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <!-- 【本次保留】拦截所有请求交给 SpringMVC -->
+    <servlet-mapping>
+        <servlet-name>dispatcher</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+    <!-- 【本次保留】默认首页 -->
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>
+
 </web-app>
