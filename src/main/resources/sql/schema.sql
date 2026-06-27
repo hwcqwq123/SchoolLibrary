@@ -1,4 +1,26 @@
 -- =========================================================
+-- SchoolLibrary v2 完整数据库脚本
+-- 文件名：schema-v2-full-combined.sql
+--
+-- 【本次合并】
+-- 1. 合并 schema.sql
+-- 2. 合并 V2_001_v2_delta.sql
+-- 3. 合并 V2_002_business_constraints.sql
+--
+-- 【使用说明】
+-- 开发环境推荐直接执行本文件：
+-- source E:/SchoolLibrary/src/main/resources/sql/schema.sql;
+--
+-- 注意：
+-- 该脚本包含完整初始化内容，可能会重建数据库和表。
+-- 执行前如需保留旧数据，请先备份数据库。
+-- =========================================================
+
+-- =========================================================
+-- Part 1：完整数据库初始化 schema.sql
+-- =========================================================
+
+-- =========================================================
 -- SchoolLibrary v2.0 集成版完整数据库初始化脚本
 -- 文件用途：替换原 src/main/resources/sql/schema.sql
 --
@@ -909,3 +931,167 @@ UNION ALL SELECT 'seat_time_slot', COUNT(*) FROM seat_time_slot
 UNION ALL SELECT 'fine_record', COUNT(*) FROM fine_record;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- =========================================================
+-- Part 2：v2 增量迁移 V2_001_v2_delta.sql
+-- 说明：该部分是幂等迁移，完整初始化后再次执行不会重复加字段。
+-- =========================================================
+
+-- =========================================================
+-- SchoolLibrary v2 增量迁移脚本 001
+-- 作用：从旧 schema 平滑升级到 v2 字段结构
+-- 执行方式：source E:/SchoolLibrary/src/main/resources/sql/migration/V2_001_v2_delta.sql;
+-- 特点：可重复执行，不会重复加字段
+-- =========================================================
+
+USE school_library;
+
+DROP PROCEDURE IF EXISTS add_col_if_missing;
+DROP PROCEDURE IF EXISTS add_index_if_missing;
+
+DELIMITER //
+
+CREATE PROCEDURE add_col_if_missing(
+    IN tableName VARCHAR(64),
+    IN columnName VARCHAR(64),
+    IN columnDefinition TEXT
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = tableName
+          AND COLUMN_NAME = columnName
+    ) THEN
+        SET @sql = CONCAT('ALTER TABLE `', tableName, '` ADD COLUMN ', columnDefinition);
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END//
+
+CREATE PROCEDURE add_index_if_missing(
+    IN tableName VARCHAR(64),
+    IN indexName VARCHAR(64),
+    IN indexDefinition TEXT
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = tableName
+          AND INDEX_NAME = indexName
+    ) THEN
+        SET @sql = CONCAT('ALTER TABLE `', tableName, '` ADD ', indexDefinition);
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END//
+
+DELIMITER ;
+
+-- 1. book_category v2 字段
+CALL add_col_if_missing('book_category', 'description', '`description` VARCHAR(500) NULL COMMENT ''分类描述''');
+CALL add_col_if_missing('book_category', 'update_time', '`update_time` DATETIME NULL');
+UPDATE book_category SET description = '系统默认分类' WHERE description IS NULL;
+
+-- 2. borrow_record 兼容字段
+CALL add_col_if_missing('borrow_record', 'borrow_date', '`borrow_date` DATETIME NULL');
+CALL add_col_if_missing('borrow_record', 'due_date', '`due_date` DATETIME NULL');
+CALL add_col_if_missing('borrow_record', 'return_date', '`return_date` DATETIME NULL');
+CALL add_col_if_missing('borrow_record', 'renew_count', '`renew_count` INT NOT NULL DEFAULT 0');
+CALL add_col_if_missing('borrow_record', 'fine', '`fine` DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+CALL add_col_if_missing('borrow_record', 'fine_status', '`fine_status` VARCHAR(20) NOT NULL DEFAULT ''NONE''');
+CALL add_col_if_missing('borrow_record', 'update_time', '`update_time` DATETIME NULL');
+
+UPDATE borrow_record SET borrow_date = borrow_time WHERE borrow_date IS NULL AND borrow_time IS NOT NULL;
+UPDATE borrow_record SET due_date = due_time WHERE due_date IS NULL AND due_time IS NOT NULL;
+UPDATE borrow_record SET return_date = return_time WHERE return_date IS NULL AND return_time IS NOT NULL;
+
+-- 3. renew_request 兼容字段
+CALL add_col_if_missing('renew_request', 'borrow_record_id', '`borrow_record_id` INT NULL');
+CALL add_col_if_missing('renew_request', 'reader_id', '`reader_id` INT NULL');
+CALL add_col_if_missing('renew_request', 'handler_id', '`handler_id` INT NULL');
+CALL add_col_if_missing('renew_request', 'handler_name', '`handler_name` VARCHAR(100) NULL');
+CALL add_col_if_missing('renew_request', 'handle_time', '`handle_time` DATETIME NULL');
+CALL add_col_if_missing('renew_request', 'remark', '`remark` VARCHAR(500) NULL');
+CALL add_col_if_missing('renew_request', 'update_time', '`update_time` DATETIME NULL');
+
+UPDATE renew_request SET borrow_record_id = borrow_id WHERE borrow_record_id IS NULL AND borrow_id IS NOT NULL;
+UPDATE renew_request SET handler_id = audit_admin_id WHERE handler_id IS NULL AND audit_admin_id IS NOT NULL;
+UPDATE renew_request SET handle_time = audit_time WHERE handle_time IS NULL AND audit_time IS NOT NULL;
+UPDATE renew_request SET remark = audit_remark WHERE remark IS NULL AND audit_remark IS NOT NULL;
+
+-- 4. fine_record 兼容字段
+CALL add_col_if_missing('fine_record', 'borrow_record_id', '`borrow_record_id` INT NULL');
+CALL add_col_if_missing('fine_record', 'operator_id', '`operator_id` INT NULL');
+CALL add_col_if_missing('fine_record', 'operator_name', '`operator_name` VARCHAR(100) NULL');
+CALL add_col_if_missing('fine_record', 'pay_time', '`pay_time` DATETIME NULL');
+CALL add_col_if_missing('fine_record', 'update_time', '`update_time` DATETIME NULL');
+UPDATE fine_record SET borrow_record_id = borrow_id WHERE borrow_record_id IS NULL AND borrow_id IS NOT NULL;
+
+-- 5. seat_lock 兼容字段
+CALL add_col_if_missing('seat_lock', 'reservation_date', '`reservation_date` DATE NULL');
+CALL add_col_if_missing('seat_lock', 'time_slot_id', '`time_slot_id` INT NULL');
+CALL add_col_if_missing('seat_lock', 'status', '`status` TINYINT NOT NULL DEFAULT 1');
+CALL add_col_if_missing('seat_lock', 'create_time', '`create_time` DATETIME NULL');
+CALL add_col_if_missing('seat_lock', 'update_time', '`update_time` DATETIME NULL');
+UPDATE seat_lock SET reservation_date = reserve_date WHERE reservation_date IS NULL AND reserve_date IS NOT NULL;
+UPDATE seat_lock SET time_slot_id = slot_id WHERE time_slot_id IS NULL AND slot_id IS NOT NULL;
+
+-- 6. seat_reservation 兼容字段
+CALL add_col_if_missing('seat_reservation', 'reservation_date', '`reservation_date` DATE NULL');
+CALL add_col_if_missing('seat_reservation', 'time_slot_id', '`time_slot_id` INT NULL');
+CALL add_col_if_missing('seat_reservation', 'cancel_time', '`cancel_time` DATETIME NULL');
+CALL add_col_if_missing('seat_reservation', 'update_time', '`update_time` DATETIME NULL');
+UPDATE seat_reservation SET reservation_date = reserve_date WHERE reservation_date IS NULL AND reserve_date IS NOT NULL;
+UPDATE seat_reservation SET time_slot_id = slot_id WHERE time_slot_id IS NULL AND slot_id IS NOT NULL;
+
+-- 7. operation_log 兼容字段
+CALL add_col_if_missing('operation_log', 'operation', '`operation` VARCHAR(255) NULL');
+CALL add_col_if_missing('operation_log', 'request_url', '`request_url` VARCHAR(500) NULL');
+CALL add_col_if_missing('operation_log', 'operator_type', '`operator_type` VARCHAR(30) NULL');
+CALL add_col_if_missing('operation_log', 'operator_id', '`operator_id` INT NULL');
+CALL add_col_if_missing('operation_log', 'operator_name', '`operator_name` VARCHAR(100) NULL');
+CALL add_col_if_missing('operation_log', 'module', '`module` VARCHAR(100) NULL');
+CALL add_col_if_missing('operation_log', 'ip', '`ip` VARCHAR(64) NULL');
+CALL add_col_if_missing('operation_log', 'create_time', '`create_time` DATETIME NULL');
+UPDATE operation_log SET operation = action WHERE operation IS NULL AND action IS NOT NULL;
+
+-- 8. 索引与唯一约束
+CALL add_index_if_missing('seat_reservation', 'idx_reader_seat_slot_status', 'KEY `idx_reader_seat_slot_status` (`reader_id`, `reservation_date`, `time_slot_id`, `status`)');
+CALL add_index_if_missing('seat_reservation', 'idx_seat_slot', 'KEY `idx_seat_slot` (`seat_id`, `reservation_date`, `time_slot_id`, `status`)');
+CALL add_index_if_missing('renew_request', 'idx_renew_borrow_status', 'KEY `idx_renew_borrow_status` (`borrow_record_id`, `status`)');
+CALL add_index_if_missing('fine_record', 'idx_fine_borrow_status', 'KEY `idx_fine_borrow_status` (`borrow_record_id`, `status`)');
+CALL add_index_if_missing('operation_log', 'idx_operation_log_time', 'KEY `idx_operation_log_time` (`create_time`)');
+CALL add_index_if_missing('operation_log', 'idx_operation_log_module', 'KEY `idx_operation_log_module` (`module`)');
+
+DROP PROCEDURE IF EXISTS add_col_if_missing;
+DROP PROCEDURE IF EXISTS add_index_if_missing;
+
+-- =========================================================
+-- Part 3：v2 业务约束迁移 V2_002_business_constraints.sql
+-- =========================================================
+
+-- =========================================================
+-- SchoolLibrary v2 增量迁移脚本 002
+-- 作用：补充业务约束说明和校验用索引
+-- 执行方式：source E:/SchoolLibrary/src/main/resources/sql/migration/V2_002_business_constraints.sql;
+-- =========================================================
+
+USE school_library;
+
+-- 说明：
+-- 1. “同一读者同一日期同一时段只能预约一个座位”已由 uk_reader_seat_slot 和后端 Service 双重保证。
+-- 2. “不能预约过去日期/时段”由 V2BusinessService + V2Mapper.countPastSeatTimeSlot 保证。
+-- 3. 续借、罚款生成、缴费确认由 @Transactional 保护。
+
+INSERT INTO operation_log(operator_type, operator_id, operator_name, module, operation, request_url, ip, create_time)
+VALUES('SYSTEM', NULL, '数据库迁移', '数据库迁移', '已执行 v2 业务约束迁移脚本', 'sql/migration/V2_002_business_constraints.sql', 'localhost', NOW());
+
+-- =========================================================
+-- SchoolLibrary v2 完整数据库脚本执行结束
+-- =========================================================

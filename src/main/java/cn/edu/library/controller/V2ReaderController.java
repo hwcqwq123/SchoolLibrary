@@ -1,6 +1,8 @@
 package cn.edu.library.controller;
 
+import cn.edu.library.dto.V2ActionResult;
 import cn.edu.library.mapper.V2Mapper;
+import cn.edu.library.service.V2BusinessService;
 import cn.edu.library.util.UploadUtil;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -10,21 +12,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
-import java.util.Calendar;
 
 /**
  * 读者端 v2 控制器。
  *
  * 【本次修改】
- * 1. 座位预约增加“同一读者同一日期同一时段只能预约一个座位”的后端校验。
- * 2. 座位预约增加“不能预约已经过去的日期/时段”的后端校验。
- * 3. 预约结果通过 seatMsg 返回给 JSP 页面提示。
+ * 1. 续借申请、座位预约、取消预约交给 V2BusinessService 处理。
+ * 2. 后端校验不再只依赖前端。
+ * 3. 操作结果通过 success / error 参数显示在页面上。
+ * 4. 关键读者操作写入 operation_log。
  */
 @Controller
 @RequestMapping("/reader/v2")
@@ -32,6 +35,9 @@ public class V2ReaderController {
 
     @Resource
     private V2Mapper v2Mapper;
+
+    @Resource
+    private V2BusinessService v2BusinessService;
 
     @GetMapping({"", "/", "/home"})
     public String home(Model model, HttpSession session) {
@@ -71,25 +77,31 @@ public class V2ReaderController {
     }
 
     @PostMapping("/renews/apply")
-    public String applyRenew(@RequestParam Integer borrowRecordId,
+    public String applyRenew(@RequestParam(required = false) Integer borrowRecordId,
                              @RequestParam(required = false) String reason,
-                             HttpSession session) {
-        v2Mapper.addRenewRequest(borrowRecordId, currentUserId(session), reason);
-        return "redirect:/reader/v2/borrows";
+                             HttpServletRequest request,
+                             RedirectAttributes ra) {
+        HttpSession session = request.getSession(false);
+        V2ActionResult result = v2BusinessService.applyRenew(borrowRecordId,
+                currentUserId(session),
+                reason,
+                currentUserName(session),
+                request.getRequestURI(),
+                request.getRemoteAddr());
+        return redirect("redirect:/reader/v2/borrows", result, ra);
     }
 
     @GetMapping("/seats")
     public String seats(@RequestParam(required = false) Integer floorId,
                         @RequestParam(required = false) String reservationDate,
                         @RequestParam(required = false) Integer timeSlotId,
-                        @RequestParam(required = false) String seatMsg,
                         Model model,
                         HttpSession session) {
         Integer readerId = currentUserId(session);
         v2Mapper.clearExpiredLocks();
 
         boolean pastSlot = false;
-        if (reservationDate != null && !reservationDate.trim().isEmpty() && timeSlotId != null) {
+        if (!isBlank(reservationDate) && timeSlotId != null) {
             pastSlot = v2Mapper.countPastSeatTimeSlot(reservationDate, timeSlotId) > 0;
         }
 
@@ -100,54 +112,43 @@ public class V2ReaderController {
         model.addAttribute("floorId", floorId);
         model.addAttribute("reservationDate", reservationDate);
         model.addAttribute("timeSlotId", timeSlotId);
-        model.addAttribute("seatMsg", seatMsg);
         model.addAttribute("pastSlot", pastSlot);
         model.addAttribute("today", LocalDate.now().toString());
         return "reader/v2-seats";
     }
 
     @PostMapping("/seats/reserve")
-    public String reserveSeat(@RequestParam Integer seatId,
-                              @RequestParam String reservationDate,
-                              @RequestParam Integer timeSlotId,
+    public String reserveSeat(@RequestParam(required = false) Integer seatId,
+                              @RequestParam(required = false) String reservationDate,
+                              @RequestParam(required = false) Integer timeSlotId,
                               @RequestParam(required = false) Integer floorId,
-                              HttpSession session) {
-        Integer readerId = currentUserId(session);
-        v2Mapper.clearExpiredLocks();
-
-        /*
-         * 【本次新增】
-         * 不能预约已经过去的日期/时段。
-         * 例如今天 15:00 后，08:00-10:00、10:00-12:00、12:00-14:00 均不可预约。
-         */
-        if (v2Mapper.countPastSeatTimeSlot(reservationDate, timeSlotId) > 0) {
-            return redirectSeat(floorId, reservationDate, timeSlotId, "past");
-        }
-
-        /*
-         * 【本次新增】
-         * 同一读者在同一日期、同一时段只能预约一个座位。
-         */
-        if (v2Mapper.countReaderSeatTimeReservation(readerId, reservationDate, timeSlotId) > 0) {
-            return redirectSeat(floorId, reservationDate, timeSlotId, "one");
-        }
-
-        if (v2Mapper.countSeatConflict(seatId, reservationDate, timeSlotId) > 0) {
-            return redirectSeat(floorId, reservationDate, timeSlotId, "occupied");
-        }
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.MINUTE, 10);
-        v2Mapper.lockSeat(seatId, readerId, reservationDate, timeSlotId, calendar.getTime());
-        v2Mapper.createSeatReservation(seatId, readerId, reservationDate, timeSlotId);
-
-        return redirectSeat(floorId, reservationDate, timeSlotId, "success");
+                              HttpServletRequest request,
+                              RedirectAttributes ra) {
+        HttpSession session = request.getSession(false);
+        V2ActionResult result = v2BusinessService.reserveSeat(seatId,
+                currentUserId(session),
+                reservationDate,
+                timeSlotId,
+                currentUserName(session),
+                request.getRequestURI(),
+                request.getRemoteAddr());
+        ra.addAttribute("floorId", floorId == null ? "" : floorId);
+        ra.addAttribute("reservationDate", reservationDate == null ? "" : reservationDate);
+        ra.addAttribute("timeSlotId", timeSlotId == null ? "" : timeSlotId);
+        return redirect("redirect:/reader/v2/seats", result, ra);
     }
 
     @GetMapping("/seats/cancel/{id}")
-    public String cancelSeat(@PathVariable Integer id, HttpSession session) {
-        v2Mapper.cancelOwnSeatReservation(id, currentUserId(session));
-        return "redirect:/reader/v2/seats";
+    public String cancelSeat(@PathVariable Integer id,
+                             HttpServletRequest request,
+                             RedirectAttributes ra) {
+        HttpSession session = request.getSession(false);
+        V2ActionResult result = v2BusinessService.cancelOwnSeatReservation(id,
+                currentUserId(session),
+                currentUserName(session),
+                request.getRequestURI(),
+                request.getRemoteAddr());
+        return redirect("redirect:/reader/v2/seats", result, ra);
     }
 
     @GetMapping("/profile")
@@ -161,26 +162,50 @@ public class V2ReaderController {
                                 @RequestParam(required = false) String email,
                                 @RequestParam(value = "avatarFile", required = false) MultipartFile avatarFile,
                                 HttpServletRequest request,
-                                HttpSession session) throws Exception {
+                                HttpSession session,
+                                RedirectAttributes ra) throws Exception {
         String avatar = null;
         if (avatarFile != null && !avatarFile.isEmpty()) {
             avatar = UploadUtil.saveImage(avatarFile, request, "avatar");
         }
         v2Mapper.updateReaderProfile(currentUserId(session), phone, email, avatar);
-        return "redirect:/reader/v2/profile";
+        v2BusinessService.logOperation("READER",
+                currentUserId(session),
+                currentUserName(session),
+                "个人中心",
+                "更新个人资料",
+                request.getRequestURI(),
+                request.getRemoteAddr());
+        return redirect("redirect:/reader/v2/profile", V2ActionResult.success("个人资料已更新"), ra);
     }
 
-    private String redirectSeat(Integer floorId, String reservationDate, Integer timeSlotId, String seatMsg) {
-        return "redirect:/reader/v2/seats?floorId=" + (floorId == null ? "" : floorId)
-                + "&reservationDate=" + reservationDate
-                + "&timeSlotId=" + timeSlotId
-                + "&seatMsg=" + seatMsg;
+    private String redirect(String target, V2ActionResult result, RedirectAttributes ra) {
+        if (result != null) {
+            if (result.isSuccess()) {
+                ra.addAttribute("success", result.getMessage());
+            } else {
+                ra.addAttribute("error", result.getMessage());
+            }
+        }
+        return target;
     }
 
     private Integer currentUserId(HttpSession session) {
-        Object user = session.getAttribute("loginUser");
+        Object user = session == null ? null : session.getAttribute("loginUser");
         Object value = call(user, "getId");
         return value instanceof Integer ? (Integer) value : null;
+    }
+
+    private String currentUserName(HttpSession session) {
+        Object user = session == null ? null : session.getAttribute("loginUser");
+        Object name = call(user, "getName");
+        if (isBlank(String.valueOf(name))) {
+            name = call(user, "getRealName");
+        }
+        if (isBlank(String.valueOf(name))) {
+            name = call(user, "getUsername");
+        }
+        return name == null ? "未知读者" : String.valueOf(name);
     }
 
     private Object call(Object obj, String methodName) {
@@ -193,5 +218,9 @@ public class V2ReaderController {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty() || "null".equals(value.trim());
     }
 }

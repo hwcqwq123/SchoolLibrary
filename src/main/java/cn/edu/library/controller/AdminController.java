@@ -4,10 +4,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * 管理员首页控制器。
+ * 【本次修改】旧管理员 Controller 封存为 v2 路由跳转。
  *
- * 【本次修改】
- * 旧版 /admin/dashboard 不再返回旧 JSP，统一跳转到新版 v2 首页，避免页面风格混乱。
+ * 原旧页面会返回 admin/dashboard.jsp，导致用户误跳回旧布局。
+ * 现在统一跳转到 v2 页面。
  */
 @Controller
 public class AdminController {

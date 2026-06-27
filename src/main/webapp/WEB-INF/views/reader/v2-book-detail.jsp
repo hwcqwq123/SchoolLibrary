@@ -1,5 +1,6 @@
-<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %><%@ include file="../common/taglib.jsp" %>
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>图书详情</title><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/v2.css"></head><body class="v2-body"><div class="v2-layout"><jsp:include page="v2-header.jsp"/><main class="v2-main">
+﻿<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %><%@ include file="../common/taglib.jsp" %>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>图书详情</title><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/v2.css"></head><body class="v2-body"><div class="v2-layout"><jsp:include page="v2-sidebar.jsp"/><main class="v2-main">
 <div class="v2-top"><div><h1>图书详情</h1><p>${book.bookName}</p></div><a class="v2-btn" href="${pageContext.request.contextPath}/reader/v2/books">返回</a></div>
 <section class="v2-card"><div style="display:flex;gap:24px"><img class="v2-cover" style="width:180px;height:240px" src="${pageContext.request.contextPath}${empty book.coverImage?'/assets/img/default-book.svg':book.coverImage}"><div><h2>${book.bookName}</h2><p>编号：${book.bookNo}</p><p>ISBN：${book.isbn}</p><p>作者：${book.author}</p><p>出版社：${book.publisher}</p><p>分类：${book.categoryName}</p><p>库存：${book.availableCount}/${book.totalCount}</p><p class="v2-muted">${book.description}</p></div></div></section>
 </main></div></body></html>
+

@@ -1,72 +1,30 @@
 package cn.edu.library.controller;
 
-import cn.edu.library.entity.Reader;
-import cn.edu.library.service.BookService;
-import cn.edu.library.service.BorrowService;
-import cn.edu.library.service.ReaderService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-
-import javax.annotation.Resource;
-import javax.servlet.http.HttpSession;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 /**
- * 借阅归还控制器。
+ * 【本次修改】旧借阅 Controller 封存为 v2 路由跳转。
  *
- * 【本次修改】
- * 旧列表入口统一跳转到 v2 借阅概览，避免点击菜单回到旧布局。
+ * 说明：
+ * 旧 JSP 页面仍在项目历史中，但不再由 Controller 返回，避免跳回旧布局。
  */
 @Controller
 public class BorrowController {
 
-    @Resource
-    private BorrowService borrowService;
-
-    @Resource
-    private ReaderService readerService;
-
-    @Resource
-    private BookService bookService;
-
-    @GetMapping("/admin/borrow/list")
+    @RequestMapping(value = "/admin/borrow/list", method = {RequestMethod.GET, RequestMethod.POST})
     public String list() {
         return "redirect:/admin/v2/borrows";
     }
 
-    @GetMapping("/admin/borrow/add")
-    public String addPage(Model model) {
-        model.addAttribute("readers", readerService.search(null));
-        model.addAttribute("books", bookService.search(null, null));
-        return "admin/borrow-form";
+    @RequestMapping(value = {"/admin/borrow/add", "/admin/borrow/return"}, method = {RequestMethod.GET, RequestMethod.POST})
+    public String borrowActions() {
+        return "redirect:/admin/v2/borrows?error=旧版借阅操作入口已封存，请使用新版借阅管理流程";
     }
 
-    @PostMapping("/admin/borrow/add")
-    public String add(@RequestParam Integer readerId,
-                      @RequestParam Integer bookId,
-                      @RequestParam Integer borrowDays,
-                      Model model) {
-        try {
-            borrowService.borrowBook(readerId, bookId, borrowDays);
-            return "redirect:/admin/v2/borrows";
-        } catch (RuntimeException e) {
-            model.addAttribute("error", e.getMessage());
-            model.addAttribute("readers", readerService.search(null));
-            model.addAttribute("books", bookService.search(null, null));
-            return "admin/borrow-form";
-        }
-    }
-
-    @GetMapping("/admin/borrow/return")
-    public String returnBook(@RequestParam Integer id) {
-        borrowService.returnBook(id);
-        return "redirect:/admin/v2/borrows";
-    }
-
-    @GetMapping("/reader/borrows")
-    public String myBorrows(HttpSession session) {
+    @RequestMapping(value = "/reader/borrows", method = {RequestMethod.GET, RequestMethod.POST})
+    public String myBorrows() {
         return "redirect:/reader/v2/borrows";
     }
 }

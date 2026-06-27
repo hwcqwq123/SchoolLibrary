@@ -4,81 +4,79 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>首页统计 - 图书馆管理系统</title>
+    <title>首页看板 - 图书馆管理系统</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/v2.css">
 </head>
 <body class="v2-body">
 <div class="v2-layout">
-    <jsp:include page="v2-sidebar.jsp"><jsp:param name="active" value="dashboard"/></jsp:include>
+    <jsp:include page="v2-sidebar.jsp"/>
 
     <main class="v2-main">
-        <%-- 【本次修改】首页统计增加蓝色可视化版面，避免数据区过于单薄。 --%>
+
+   
         <section class="v2-dashboard-hero">
             <div>
-                <h1>今日图书馆看板</h1>
-                <p>集中展示馆藏、读者、借阅、逾期、座位预约与公告信息，帮助管理员快速掌握图书馆运行状态。</p>
-                <div class="v2-hero-chips">
-                    <span class="v2-hero-chip">实时统计</span>
-                    <span class="v2-hero-chip">逾期提醒</span>
-                    <span class="v2-hero-chip">座位概览</span>
-                </div>
+                <h1>图书馆数据一览</h1>
+                <p>集中查看馆藏规模、读者数量、借阅状态、逾期提醒和座位使用情况。</p>
             </div>
             <div class="v2-hero-panel">
-                <strong>${stats.bookTotal}</strong>
-                <span>当前馆藏图书总量</span>
+                <strong>${empty stats.borrowedTotal ? 0 : stats.borrowedTotal}</strong>
+                <span>当前借出图书数量</span>
                 <div class="v2-hero-line"><i></i></div>
-                <p>当前借出 ${stats.borrowedTotal} 本，逾期未还 ${stats.overdueTotal} 本。</p>
+                <span>逾期未还：${empty stats.overdueTotal ? 0 : stats.overdueTotal} 本</span>
             </div>
         </section>
 
-        <section class="v2-stat-grid">
-            <div class="v2-stat-card">
+        <section class="v2-dashboard-grid">
+            <div class="v2-kpi-card">
                 <span>图书总数</span>
-                <strong>${stats.bookTotal}</strong>
-                <div class="v2-stat-meta">馆藏资源规模</div>
-                <div class="v2-stat-bar"><i class="v2-w-85"></i></div>
+                <strong>${empty stats.bookTotal ? 0 : stats.bookTotal}</strong>
+                <em>馆藏资源规模</em>
+                <div class="v2-kpi-bar"><i style="width: 88%;"></i></div>
             </div>
-            <div class="v2-stat-card">
+            <div class="v2-kpi-card">
                 <span>读者总数</span>
-                <strong>${stats.readerTotal}</strong>
-                <div class="v2-stat-meta">已启用读者账户</div>
-                <div class="v2-stat-bar"><i class="v2-w-65"></i></div>
+                <strong>${empty stats.readerTotal ? 0 : stats.readerTotal}</strong>
+                <em>有效读者账户</em>
+                <div class="v2-kpi-bar"><i style="width: 72%;"></i></div>
             </div>
-            <div class="v2-stat-card">
+            <div class="v2-kpi-card">
                 <span>当前借出</span>
-                <strong>${stats.borrowedTotal}</strong>
-                <div class="v2-stat-meta">仍在借阅中的图书</div>
-                <div class="v2-stat-bar"><i class="v2-w-55"></i></div>
+                <strong>${empty stats.borrowedTotal ? 0 : stats.borrowedTotal}</strong>
+                <em>正在流通图书</em>
+                <div class="v2-kpi-bar"><i style="width: 62%;"></i></div>
             </div>
-            <div class="v2-stat-card">
+            <div class="v2-kpi-card">
                 <span>逾期未还</span>
-                <strong>${stats.overdueTotal}</strong>
-                <div class="v2-stat-meta">需要跟进提醒</div>
-                <div class="v2-stat-bar"><i class="v2-w-35"></i></div>
+                <strong>${empty stats.overdueTotal ? 0 : stats.overdueTotal}</strong>
+                <em>需重点关注</em>
+                <div class="v2-kpi-bar"><i style="width: 34%;"></i></div>
             </div>
-            <div class="v2-stat-card">
+            <div class="v2-kpi-card">
                 <span>今日借阅</span>
-                <strong>${stats.todayBorrowTotal}</strong>
-                <div class="v2-stat-meta">今日新增借阅量</div>
-                <div class="v2-stat-bar"><i class="v2-w-45"></i></div>
+                <strong>${empty stats.todayBorrowTotal ? 0 : stats.todayBorrowTotal}</strong>
+                <em>今日新增借出</em>
+                <div class="v2-kpi-bar"><i style="width: 48%;"></i></div>
             </div>
-            <div class="v2-stat-card">
+            <div class="v2-kpi-card">
                 <span>今日座位预约</span>
-                <strong>${stats.todaySeatTotal}</strong>
-                <div class="v2-stat-meta">今日有效座位预约</div>
-                <div class="v2-stat-bar"><i class="v2-w-75"></i></div>
+                <strong>${empty stats.todaySeatTotal ? 0 : stats.todaySeatTotal}</strong>
+                <em>阅览座位使用</em>
+                <div class="v2-kpi-bar"><i style="width: 56%;"></i></div>
             </div>
         </section>
 
-        <div class="v2-two-col">
+        <div class="v2-dashboard-row">
             <section class="v2-card v2-visual-card">
-                <h2>分类馆藏统计</h2>
+                <h2>分类馆藏可视化</h2>
                 <div class="v2-mini-bars">
                     <c:forEach items="${categoryStats}" var="c">
                         <div class="v2-mini-bar-row">
                             <div class="v2-mini-bar-name">${c.categoryName}</div>
-                            <div class="v2-mini-bar-track"><i style="width:${c.bookCount == 0 ? 8 : (c.bookCount * 18 + 18)}%;"></i></div>
-                            <div class="v2-mini-bar-value">${c.bookCount} 本</div>
+                            <div class="v2-mini-bar-track">
+                                <i style="width:${c.bookCount * 8 + 12}%; max-width:100%;"></i>
+                            </div>
+                            <div class="v2-mini-bar-value">${c.bookCount}</div>
                         </div>
                     </c:forEach>
                     <c:if test="${empty categoryStats}">
@@ -90,48 +88,93 @@
             <section class="v2-card">
                 <h2>最新公告</h2>
                 <table class="v2-table">
-                    <tr><th>标题</th><th>时间</th></tr>
+                    <thead>
+                    <tr>
+                        <th>标题</th>
+                        <th>发布时间</th>
+                    </tr>
+                    </thead>
+                    <tbody>
                     <c:forEach items="${latestNotices}" var="n">
-                        <tr><td>${n.title}</td><td>${fn:replace(n.createTime, 'T', ' ')}</td></tr>
+                        <tr>
+                            <td>${n.title}</td>
+                            <td>
+                                <c:choose>
+                                    <c:when test="${not empty n.createTime}">
+                                        ${fn:replace(n.createTime, 'T', ' ')}
+                                    </c:when>
+                                    <c:otherwise>-</c:otherwise>
+                                </c:choose>
+                            </td>
+                        </tr>
                     </c:forEach>
-                    <c:if test="${empty latestNotices}"><tr><td colspan="2" class="v2-empty">暂无公告</td></tr></c:if>
+                    <c:if test="${empty latestNotices}">
+                        <tr><td colspan="2" class="v2-empty">暂无公告</td></tr>
+                    </c:if>
+                    </tbody>
                 </table>
             </section>
         </div>
 
-        <section class="v2-card">
-            <h2>最近借阅</h2>
-            <table class="v2-table">
-                <tr><th>读者</th><th>图书</th><th>借出时间</th><th>应还时间</th><th>状态</th></tr>
-                <c:forEach items="${recentBorrows}" var="b">
+        <div class="v2-dashboard-row">
+            <section class="v2-card">
+                <h2>最近借阅</h2>
+                <table class="v2-table">
+                    <thead>
                     <tr>
-                        <td>${b.readerName}</td>
-                        <td>${b.bookName}</td>
-                        <td>${fn:replace(b.borrowDate, 'T', ' ')}</td>
-                        <td>${fn:replace(b.dueDate, 'T', ' ')}</td>
-                        <td><span class="v2-tag ${b.status == 'BORROWED' ? 'info' : 'ok'}">${b.status}</span></td>
+                        <th>读者</th>
+                        <th>图书</th>
+                        <th>借出时间</th>
+                        <th>应还时间</th>
+                        <th>状态</th>
                     </tr>
-                </c:forEach>
-                <c:if test="${empty recentBorrows}"><tr><td colspan="5" class="v2-empty">暂无借阅记录</td></tr></c:if>
-            </table>
-        </section>
+                    </thead>
+                    <tbody>
+                    <c:forEach items="${recentBorrows}" var="b">
+                        <tr>
+                            <td>${b.readerName}</td>
+                            <td>${b.bookName}</td>
+                            <td>${fn:replace(b.borrowDate, 'T', ' ')}</td>
+                            <td>${fn:replace(b.dueDate, 'T', ' ')}</td>
+                            <td><span class="v2-tag">${b.status}</span></td>
+                        </tr>
+                    </c:forEach>
+                    <c:if test="${empty recentBorrows}">
+                        <tr><td colspan="5" class="v2-empty">暂无借阅记录</td></tr>
+                    </c:if>
+                    </tbody>
+                </table>
+            </section>
 
-        <section class="v2-card">
-            <h2>逾期提醒</h2>
-            <table class="v2-table">
-                <tr><th>读者</th><th>图书</th><th>应还日期</th><th>逾期天数</th><th>预计罚款</th></tr>
-                <c:forEach items="${overdueList}" var="o">
+            <section class="v2-card">
+                <h2>逾期提醒</h2>
+                <table class="v2-table">
+                    <thead>
                     <tr>
-                        <td>${o.readerName}</td>
-                        <td>${o.bookName}</td>
-                        <td>${fn:replace(o.dueDate, 'T', ' ')}</td>
-                        <td><span class="v2-tag danger">${o.overdueDays} 天</span></td>
-                        <td>${o.fine}</td>
+                        <th>读者</th>
+                        <th>图书</th>
+                        <th>应还日期</th>
+                        <th>逾期天数</th>
+                        <th>预计罚款</th>
                     </tr>
-                </c:forEach>
-                <c:if test="${empty overdueList}"><tr><td colspan="5" class="v2-empty">暂无逾期记录</td></tr></c:if>
-            </table>
-        </section>
+                    </thead>
+                    <tbody>
+                    <c:forEach items="${overdueList}" var="o">
+                        <tr>
+                            <td>${o.readerName}</td>
+                            <td>${o.bookName}</td>
+                            <td>${fn:replace(o.dueDate, 'T', ' ')}</td>
+                            <td><span class="v2-tag danger">${o.overdueDays}</span></td>
+                            <td>${o.fine}</td>
+                        </tr>
+                    </c:forEach>
+                    <c:if test="${empty overdueList}">
+                        <tr><td colspan="5" class="v2-empty">暂无逾期记录</td></tr>
+                    </c:if>
+                    </tbody>
+                </table>
+            </section>
+        </div>
     </main>
 </div>
 </body>

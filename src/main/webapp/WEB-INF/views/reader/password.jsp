@@ -1,26 +1,21 @@
-﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="../common/taglib.jsp" %>
+<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
+<%
+    /*
+     * 【本次修改】旧 JSP 页面封存。
+     * 防止用户从历史链接进入旧布局页面。
+     */
+    String target = request.getContextPath() + "/reader/v2/profile";
+    response.sendRedirect(target);
+%>
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>修改密码</title>
-    <link rel="stylesheet" href="${ctx}/assets/css/app.css">
+    <title>页面已迁移</title>
+    <meta http-equiv="refresh" content="0;url=${pageContext.request.contextPath}/reader/v2/profile">
 </head>
 <body>
-<%@ include file="../common/reader-header.jsp" %>
-<h2>修改密码</h2>
-<c:if test="${not empty message}"><div class="alert success">${message}</div></c:if>
-<c:if test="${not empty error}"><div class="alert error">${error}</div></c:if>
-<form class="form" method="post" action="${ctx}/reader/password">
-    <label>旧密码</label>
-    <input type="password" name="oldPassword" required>
-    <label>新密码</label>
-    <input type="password" name="newPassword" required>
-    <button class="btn primary" type="submit">确认修改</button>
-</form>
-<%@ include file="../common/footer.jsp" %>
+<p>旧版密码页面已封存，正在进入新版个人中心。</p>
+<p><a href="${pageContext.request.contextPath}/reader/v2/profile">点击进入新版页面</a></p>
 </body>
 </html>
-
-

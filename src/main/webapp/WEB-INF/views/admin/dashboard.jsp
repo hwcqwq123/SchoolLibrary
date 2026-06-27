@@ -1,27 +1,21 @@
-﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="../common/taglib.jsp" %>
+<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
+<%
+    /*
+     * 【本次修改】旧 JSP 页面封存。
+     * 防止用户从历史链接进入旧布局页面。
+     */
+    String target = request.getContextPath() + "/admin/v2/dashboard";
+    response.sendRedirect(target);
+%>
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>管理员首页</title>
-    <link rel="stylesheet" href="${ctx}/assets/css/app.css">
+    <title>页面已迁移</title>
+    <meta http-equiv="refresh" content="0;url=${pageContext.request.contextPath}/admin/v2/dashboard">
 </head>
 <body>
-<%@ include file="../common/admin-header.jsp" %>
-<h2>首页统计</h2>
-<div class="cards">
-    <div class="card"><strong>${stats.bookCount}</strong><span>馆藏图书</span></div>
-    <div class="card"><strong>${stats.readerCount}</strong><span>读者数量</span></div>
-    <div class="card"><strong>${stats.borrowedCount}</strong><span>当前借出</span></div>
-    <div class="card"><strong>${stats.overdueCount}</strong><span>逾期未还</span></div>
-</div>
-<div class="panel">
-    <h3>系统说明</h3>
-    <p>管理员可完成图书信息维护、读者信息维护、借阅归还管理和借阅记录查询等功能。</p>
-</div>
-<%@ include file="../common/footer.jsp" %>
+<p>旧版管理员首页已封存，正在进入新版首页看板。</p>
+<p><a href="${pageContext.request.contextPath}/admin/v2/dashboard">点击进入新版页面</a></p>
 </body>
 </html>
-
-

@@ -1,35 +1,21 @@
-﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="../common/taglib.jsp" %>
+<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
+<%
+    /*
+     * 【本次修改】旧 JSP 页面封存。
+     * 防止用户从历史链接进入旧布局页面。
+     */
+    String target = request.getContextPath() + "/reader/v2/borrows";
+    response.sendRedirect(target);
+%>
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>我的借阅</title>
-    <link rel="stylesheet" href="${ctx}/assets/css/app.css">
+    <title>页面已迁移</title>
+    <meta http-equiv="refresh" content="0;url=${pageContext.request.contextPath}/reader/v2/borrows">
 </head>
 <body>
-<%@ include file="../common/reader-header.jsp" %>
-<h2>我的借阅记录</h2>
-<table class="table">
-    <thead><tr><th>图书编号</th><th>书名</th><th>分类</th><th>借阅时间</th><th>应还时间</th><th>归还时间</th><th>状态</th><th>罚款</th></tr></thead>
-    <tbody>
-    <c:forEach items="${records}" var="r">
-        <tr>
-            <td>${r.bookNo}</td>
-            <td>${r.bookName}</td>
-            <td>${r.category}</td>
-            <td>${fn:replace(r.borrowTime, 'T', ' ')}</td>
-            <td>${fn:replace(r.dueTime, 'T', ' ')}</td>
-            <td>${fn:replace(r.returnTime, 'T', ' ')}</td>
-            <td>${r.status}</td>
-            <td>${r.fine}</td>
-        </tr>
-    </c:forEach>
-    </tbody>
-</table>
-<%@ include file="../common/footer.jsp" %>
+<p>旧版我的借阅已封存，正在进入新版我的借阅。</p>
+<p><a href="${pageContext.request.contextPath}/reader/v2/borrows">点击进入新版页面</a></p>
 </body>
 </html>
-
-
-

@@ -4,11 +4,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * 【本次修改】旧路径兼容跳转控制器。
+ * 【本次修改】非冲突旧路径兼容跳转控制器。
  *
  * 注意：
- * 这里只保留没有被旧 Controller 占用的路径，避免 Spring 启动时出现 Ambiguous mapping。
- * 已经存在的 /admin/books、/admin/readers、/reader/books 等路径，已直接在原 Controller 中改为跳转 v2。
+ * 这里不再映射 /admin/books、/admin/readers、/reader/books、/reader/borrows 等
+ * 已经由旧 Controller 接管并跳转的路径，避免 Spring Ambiguous mapping。
  */
 @Controller
 public class RouteCompatController {
@@ -53,7 +53,7 @@ public class RouteCompatController {
         return "redirect:/admin/v2/data";
     }
 
-    @GetMapping({"/admin/system", "/admin/admins", "/admin/logs"})
+    @GetMapping({"/admin/system", "/admin/admins", "/admin/logs", "/admin/v2/admins", "/admin/v2/logs"})
     public String adminSystem() {
         return "redirect:/admin/v2/system";
     }

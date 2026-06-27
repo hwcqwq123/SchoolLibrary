@@ -1,28 +1,27 @@
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ include file="../common/taglib.jsp" %>
-
-<%--
-    【本次修改】管理员端统一侧边栏。
-    选中效果统一为浅蓝色按钮，依赖 v2.css 的 .v2-nav a.active。
---%>
+<%
+    String uri = request.getRequestURI();
+    String ctx = request.getContextPath();
+%>
 <aside class="v2-side">
     <div class="v2-brand">
         图书馆管理系统
-        <small>管理员端 · SchoolLibrary v2</small>
+        <small>SchoolLibrary v2 · 管理员端</small>
     </div>
 
     <nav class="v2-nav">
-        <a class="${param.active == 'dashboard' ? 'active' : ''}" ${param.active == 'dashboard' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/dashboard">首页统计</a>
-        <a class="${param.active == 'books' ? 'active' : ''}" ${param.active == 'books' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/books">图书管理</a>
-        <a class="${param.active == 'readers' ? 'active' : ''}" ${param.active == 'readers' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/readers">读者管理</a>
-        <a class="${param.active == 'borrows' ? 'active' : ''}" ${param.active == 'borrows' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/borrows">借阅概览</a>
-        <a class="${param.active == 'categories' ? 'active' : ''}" ${param.active == 'categories' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/categories">分类管理</a>
-        <a class="${param.active == 'renews' ? 'active' : ''}" ${param.active == 'renews' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/renews">续借审核</a>
-        <a class="${param.active == 'fines' ? 'active' : ''}" ${param.active == 'fines' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/fines">罚款管理</a>
-        <a class="${param.active == 'seats' ? 'active' : ''}" ${param.active == 'seats' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/seats">座位预约管理</a>
-        <a class="${param.active == 'notices' ? 'active' : ''}" ${param.active == 'notices' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/notices">公告管理</a>
-        <a class="${param.active == 'data' ? 'active' : ''}" ${param.active == 'data' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/data">数据维护</a>
-        <a class="${param.active == 'system' ? 'active' : ''}" ${param.active == 'system' ? 'aria-current="page"' : ''} href="${pageContext.request.contextPath}/admin/v2/system">系统管理</a>
-        <a class="logout" href="${pageContext.request.contextPath}/logout">退出登录</a>
+        <a class="<%= uri.contains("/admin/v2/dashboard") ? "active" : "" %>" <%= uri.contains("/admin/v2/dashboard") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/dashboard">首页看板</a>
+        <a class="<%= uri.contains("/admin/v2/books") ? "active" : "" %>" <%= uri.contains("/admin/v2/books") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/books">图书管理</a>
+        <a class="<%= uri.contains("/admin/v2/categories") ? "active" : "" %>" <%= uri.contains("/admin/v2/categories") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/categories">分类管理</a>
+        <a class="<%= uri.contains("/admin/v2/readers") ? "active" : "" %>" <%= uri.contains("/admin/v2/readers") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/readers">读者管理</a>
+        <a class="<%= uri.contains("/admin/v2/borrows") ? "active" : "" %>" <%= uri.contains("/admin/v2/borrows") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/borrows">借阅管理</a>
+        <a class="<%= uri.contains("/admin/v2/renews") ? "active" : "" %>" <%= uri.contains("/admin/v2/renews") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/renews">续借审核</a>
+        <a class="<%= uri.contains("/admin/v2/fines") ? "active" : "" %>" <%= uri.contains("/admin/v2/fines") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/fines">罚款管理</a>
+        <a class="<%= uri.contains("/admin/v2/seats") ? "active" : "" %>" <%= uri.contains("/admin/v2/seats") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/seats">座位预约</a>
+        <a class="<%= uri.contains("/admin/v2/notices") ? "active" : "" %>" <%= uri.contains("/admin/v2/notices") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/notices">公告管理</a>
+        <a class="<%= uri.contains("/admin/v2/data") ? "active" : "" %>" <%= uri.contains("/admin/v2/data") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/data">数据维护</a>
+        <a class="<%= uri.contains("/admin/v2/system") ? "active" : "" %>" <%= uri.contains("/admin/v2/system") ? "aria-current=\"page\"" : "" %> href="<%= ctx %>/admin/v2/system">系统管理</a>
+        <a href="<%= ctx %>/logout">退出登录</a>
     </nav>
 </aside>
+<jsp:include page="../common/v2-flash.jsp"/>
