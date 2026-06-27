@@ -15,6 +15,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.lang.reflect.Method;
+import java.time.LocalDate;
 import java.util.Calendar;
 
 /**
@@ -22,7 +23,8 @@ import java.util.Calendar;
  *
  * 【本次修改】
  * 1. 座位预约增加“同一读者同一日期同一时段只能预约一个座位”的后端校验。
- * 2. 预约结果通过 seatMsg 返回给 JSP 页面提示。
+ * 2. 座位预约增加“不能预约已经过去的日期/时段”的后端校验。
+ * 3. 预约结果通过 seatMsg 返回给 JSP 页面提示。
  */
 @Controller
 @RequestMapping("/reader/v2")
@@ -85,6 +87,12 @@ public class V2ReaderController {
                         HttpSession session) {
         Integer readerId = currentUserId(session);
         v2Mapper.clearExpiredLocks();
+
+        boolean pastSlot = false;
+        if (reservationDate != null && !reservationDate.trim().isEmpty() && timeSlotId != null) {
+            pastSlot = v2Mapper.countPastSeatTimeSlot(reservationDate, timeSlotId) > 0;
+        }
+
         model.addAttribute("floors", v2Mapper.listFloors());
         model.addAttribute("slots", v2Mapper.listSlots());
         model.addAttribute("seats", v2Mapper.listSeats(floorId, reservationDate, timeSlotId, readerId));
@@ -93,6 +101,8 @@ public class V2ReaderController {
         model.addAttribute("reservationDate", reservationDate);
         model.addAttribute("timeSlotId", timeSlotId);
         model.addAttribute("seatMsg", seatMsg);
+        model.addAttribute("pastSlot", pastSlot);
+        model.addAttribute("today", LocalDate.now().toString());
         return "reader/v2-seats";
     }
 
@@ -104,6 +114,15 @@ public class V2ReaderController {
                               HttpSession session) {
         Integer readerId = currentUserId(session);
         v2Mapper.clearExpiredLocks();
+
+        /*
+         * 【本次新增】
+         * 不能预约已经过去的日期/时段。
+         * 例如今天 15:00 后，08:00-10:00、10:00-12:00、12:00-14:00 均不可预约。
+         */
+        if (v2Mapper.countPastSeatTimeSlot(reservationDate, timeSlotId) > 0) {
+            return redirectSeat(floorId, reservationDate, timeSlotId, "past");
+        }
 
         /*
          * 【本次新增】

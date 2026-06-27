@@ -1,18 +1,22 @@
 /* =========================================================
- * 【本次修改】SchoolLibrary v2 统一蓝色系前端样式
- * 目标：
- * 1. 管理员/读者 v2 页面统一左侧侧边栏布局。
- * 2. 当前选中菜单使用浅蓝色高亮。
- * 3. 卡片、表格、按钮、表单统一蓝色系。
+ * 【本次修改】SchoolLibrary v2 统一蓝色系 UI
+ * 1. 管理员端/读者端统一左侧侧边栏。
+ * 2. 当前选中菜单为浅蓝色按钮，颜色变浅且清晰可见。
+ * 3. 首页看板增加可视化数据面板、渐变背景、指标卡片和进度条。
+ * 4. 座位预约增加过去时段的禁用提示样式。
  * ========================================================= */
 :root {
-    --v2-bg: #f3f7fd;
+    --v2-bg: #f2f6fc;
     --v2-card: #ffffff;
     --v2-side: #102345;
-    --v2-side-deep: #0b1a35;
+    --v2-side-deep: #07162f;
+    --v2-side-text: #f1f7ff;
+    --v2-side-muted: #b7c9e6;
     --v2-primary: #2563eb;
     --v2-primary-dark: #1d4ed8;
+    --v2-primary-light: #60a5fa;
     --v2-primary-soft: #eaf2ff;
+    --v2-primary-softer: #f4f8ff;
     --v2-primary-line: #bfdbfe;
     --v2-text: #0f2748;
     --v2-muted: #64748b;
@@ -30,7 +34,9 @@
 html, body { min-height: 100%; }
 body.v2-body {
     margin: 0;
-    background: var(--v2-bg);
+    background:
+        radial-gradient(circle at 20% 0%, rgba(96,165,250,.16), transparent 32%),
+        linear-gradient(180deg, #f7fbff 0%, var(--v2-bg) 58%, #eef4fb 100%);
     color: var(--v2-text);
     font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
     font-size: 14px;
@@ -45,23 +51,24 @@ a { color: inherit; text-decoration: none; }
     bottom: 0;
     width: 250px;
     background: linear-gradient(180deg, var(--v2-side), var(--v2-side-deep));
-    color: #e5edf8;
+    color: var(--v2-side-text);
     padding: 22px 16px;
     overflow-y: auto;
-    box-shadow: 12px 0 30px rgba(15, 35, 72, .12);
+    box-shadow: 12px 0 30px rgba(15, 35, 72, .14);
 }
 .v2-brand {
     padding: 6px 8px 18px;
     font-size: 22px;
     font-weight: 900;
     line-height: 1.2;
+    letter-spacing: .2px;
 }
 .v2-brand small {
     display: block;
     margin-top: 7px;
-    color: #9fb3d1;
+    color: var(--v2-side-muted);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
 }
 .v2-nav { display: flex; flex-direction: column; gap: 6px; }
 .v2-nav a {
@@ -69,25 +76,40 @@ a { color: inherit; text-decoration: none; }
     align-items: center;
     min-height: 42px;
     padding: 10px 13px;
-    border-radius: 12px;
-    color: #d8e4f7;
-    font-weight: 800;
+    border-radius: 13px;
+    color: #dbeafe;
+    font-weight: 850;
     letter-spacing: .2px;
-    transition: all .15s ease;
+    border: 1px solid transparent;
+    transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
 }
 .v2-nav a:hover {
-    background: rgba(255,255,255,.10);
-    color: #fff;
+    background: rgba(255,255,255,.11);
+    color: #ffffff;
+    border-color: rgba(255,255,255,.08);
     transform: translateX(2px);
 }
-.v2-nav a.active {
-    background: var(--v2-primary-soft);
-    color: var(--v2-primary-dark);
-    box-shadow: inset 4px 0 0 var(--v2-primary), 0 8px 18px rgba(37,99,235,.16);
+/* 【本次修改】管理员端和读者端共用选中效果：按钮颜色变浅，文字更深，更容易辨认。 */
+.v2-nav a.active,
+.v2-nav a[aria-current="page"] {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1746a2;
+    border-color: #bfdbfe;
+    box-shadow: inset 4px 0 0 var(--v2-primary), 0 10px 22px rgba(37, 99, 235, .18);
+    transform: none;
+}
+.v2-nav a.active:hover,
+.v2-nav a[aria-current="page"]:hover {
+    background: linear-gradient(135deg, #f8fbff 0%, #e0f2fe 100%);
+    color: #123d8a;
 }
 .v2-nav a.logout {
     margin-top: 12px;
     color: #ffd7d7;
+}
+.v2-nav a.logout:hover {
+    background: rgba(220, 38, 38, .18);
+    color: #fff;
 }
 
 .v2-main {
@@ -116,16 +138,76 @@ a { color: inherit; text-decoration: none; }
 }
 .v2-card h2 { margin: 0 0 16px; font-size: 22px; color: var(--v2-text); }
 
-.v2-stat-grid, .v2-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+/* =========================================================
+ * 首页可视化看板
+ * ========================================================= */
+.v2-dashboard-hero {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+    gap: 22px;
+    margin-bottom: 18px;
+    padding: 28px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 82% 14%, rgba(147,197,253,.50), transparent 28%),
+        linear-gradient(135deg, #0f3b8f 0%, #2563eb 48%, #60a5fa 100%);
+    color: #fff;
+    box-shadow: 0 24px 50px rgba(37, 99, 235, .22);
+}
+.v2-dashboard-hero h1 { margin: 0; font-size: 34px; font-weight: 900; }
+.v2-dashboard-hero p { margin: 10px 0 0; color: rgba(255,255,255,.86); line-height: 1.8; }
+.v2-hero-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.v2-hero-chip { padding: 7px 10px; border-radius: 999px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.20); font-weight: 800; }
+.v2-hero-panel {
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 20px;
+    padding: 18px;
+    backdrop-filter: blur(10px);
+}
+.v2-hero-panel strong { display: block; font-size: 34px; line-height: 1.1; }
+.v2-hero-panel span { display: block; margin-top: 8px; color: rgba(255,255,255,.84); }
+.v2-hero-line { margin-top: 18px; height: 10px; border-radius: 999px; background: rgba(255,255,255,.22); overflow: hidden; }
+.v2-hero-line i { display: block; height: 100%; width: 72%; border-radius: inherit; background: #fff; }
+
+.v2-stat-grid, .v2-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .v2-two-col, .v2-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .v2-stat-card, .v2-stat {
+    position: relative;
+    overflow: hidden;
     background: linear-gradient(135deg, #ffffff, #edf5ff);
     border: 1px solid var(--v2-primary-line);
     border-radius: 18px;
     padding: 20px;
 }
-.v2-stat-card span, .v2-stat span { color: var(--v2-muted); font-weight: 700; }
-.v2-stat-card strong, .v2-stat strong { display: block; margin-top: 8px; font-size: 30px; color: var(--v2-primary-dark); }
+.v2-stat-card::after, .v2-stat::after {
+    content: "";
+    position: absolute;
+    right: -28px;
+    top: -28px;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: rgba(37, 99, 235, .09);
+}
+.v2-stat-card span, .v2-stat span { color: var(--v2-muted); font-weight: 800; }
+.v2-stat-card strong, .v2-stat strong { display: block; margin-top: 8px; font-size: 32px; color: var(--v2-primary-dark); }
+.v2-stat-meta { margin-top: 8px; color: var(--v2-muted); font-size: 12px; }
+.v2-stat-bar { height: 9px; border-radius: 999px; overflow: hidden; background: #dbeafe; margin-top: 14px; }
+.v2-stat-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--v2-primary), var(--v2-primary-light)); }
+.v2-w-35 { width: 35%; } .v2-w-45 { width: 45%; } .v2-w-55 { width: 55%; } .v2-w-65 { width: 65%; } .v2-w-75 { width: 75%; } .v2-w-85 { width: 85%; }
+
+.v2-visual-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+.v2-mini-bars { display: grid; gap: 12px; }
+.v2-mini-bar-row { display: grid; grid-template-columns: 110px 1fr 60px; gap: 12px; align-items: center; }
+.v2-mini-bar-name { font-weight: 900; color: #17345c; }
+.v2-mini-bar-track { height: 10px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+.v2-mini-bar-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #93c5fd); }
+.v2-mini-bar-value { text-align: right; color: var(--v2-muted); font-weight: 900; }
 
 .v2-table { width: 100%; border-collapse: collapse; background: #fff; }
 .v2-table th, .v2-table td { padding: 13px 12px; border-bottom: 1px solid #e5edf7; vertical-align: middle; text-align: left; }
@@ -187,17 +269,31 @@ a { color: inherit; text-decoration: none; }
 .v2-seat-grid { display: grid; grid-template-columns: repeat(10, 44px); gap: 9px; align-items: center; }
 .v2-seat { width: 44px; height: 44px; border-radius: 12px; border: 1px solid #cbd8ea; background: #e5e7eb; font-weight: 900; cursor: pointer; }
 .v2-seat.free { background: #e5e7eb; color: #111827; }
+.v2-seat.free:hover { background: #dbeafe; border-color: var(--v2-primary-light); color: var(--v2-primary-dark); }
 .v2-seat.mine, .v2-seat.locked-mine { background: #22c55e; color: #fff; }
 .v2-seat.reserved { background: #ef4444; color: #fff; cursor: not-allowed; }
 .v2-seat.locked { background: #facc15; color: #713f12; cursor: not-allowed; }
+.v2-seat.past { background: #cbd5e1; color: #64748b; cursor: not-allowed; }
 .v2-seat:disabled { opacity: .82; }
+.v2-seat-legend { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 18px; color: var(--v2-muted); }
+.v2-seat-legend span { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+.v2-seat-dot { width: 12px; height: 12px; border-radius: 4px; display: inline-block; background: #e5e7eb; border: 1px solid #cbd8ea; }
+.v2-seat-dot.mine { background: #22c55e; border-color: #22c55e; }
+.v2-seat-dot.reserved { background: #ef4444; border-color: #ef4444; }
+.v2-seat-dot.locked { background: #facc15; border-color: #facc15; }
+.v2-seat-dot.past { background: #cbd5e1; border-color: #cbd5e1; }
 
 .v2-cover { width: 58px; height: 78px; border-radius: 8px; object-fit: cover; background: #e2e8f0; border: 1px solid #cbd5e1; }
 
+@media (max-width: 1180px) {
+    .v2-dashboard-hero { grid-template-columns: 1fr; }
+    .v2-stat-grid, .v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 980px) {
     .v2-layout { display: block; }
     .v2-side { position: static; width: 100%; height: auto; }
     .v2-main { margin-left: 0; width: 100%; padding: 20px; }
     .v2-stat-grid, .v2-grid, .v2-two-col, .v2-grid-2, .v2-form, .v2-form.two, .v2-form.three { grid-template-columns: 1fr; }
     .v2-seat-grid { grid-template-columns: repeat(5, 44px); }
+    .v2-mini-bar-row { grid-template-columns: 86px 1fr 48px; }
 }

@@ -117,6 +117,17 @@ public interface V2Mapper {
                                        @Param("reservationDate") String reservationDate,
                                        @Param("timeSlotId") Integer timeSlotId);
 
+    /**
+     * 【本次新增】
+     * 判断选择的日期 + 时段是否已经结束。
+     * 结束时间小于等于当前时间时，不允许预约。
+     */
+    @Select("SELECT COUNT(1) FROM seat_time_slot " +
+            "WHERE id = #{timeSlotId} " +
+            "AND STR_TO_DATE(CONCAT(#{reservationDate}, ' ', end_time), '%Y-%m-%d %H:%i:%s') <= NOW()")
+    int countPastSeatTimeSlot(@Param("reservationDate") String reservationDate,
+                              @Param("timeSlotId") Integer timeSlotId);
+
     int lockSeat(@Param("seatId") Integer seatId,
                  @Param("readerId") Integer readerId,
                  @Param("reservationDate") String reservationDate,
