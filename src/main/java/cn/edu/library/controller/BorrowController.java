@@ -6,31 +6,34 @@ import cn.edu.library.service.BorrowService;
 import cn.edu.library.service.ReaderService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
 
 /**
- * 借阅归还控制器：实现管理员借书、还书、借阅记录查询，以及读者查看个人借阅。
+ * 借阅归还控制器。
+ *
+ * 【本次修改】
+ * 旧列表入口统一跳转到 v2 借阅概览，避免点击菜单回到旧布局。
  */
 @Controller
 public class BorrowController {
+
     @Resource
     private BorrowService borrowService;
+
     @Resource
     private ReaderService readerService;
+
     @Resource
     private BookService bookService;
 
     @GetMapping("/admin/borrow/list")
-    public String list(@RequestParam(required = false) String keyword,
-                       @RequestParam(required = false) String status,
-                       Model model) {
-        model.addAttribute("records", borrowService.search(keyword, status));
-        model.addAttribute("keyword", keyword);
-        model.addAttribute("status", status);
-        return "admin/borrow-list";
+    public String list() {
+        return "redirect:/admin/v2/borrows";
     }
 
     @GetMapping("/admin/borrow/add")
@@ -47,7 +50,7 @@ public class BorrowController {
                       Model model) {
         try {
             borrowService.borrowBook(readerId, bookId, borrowDays);
-            return "redirect:/admin/borrow/list";
+            return "redirect:/admin/v2/borrows";
         } catch (RuntimeException e) {
             model.addAttribute("error", e.getMessage());
             model.addAttribute("readers", readerService.search(null));
@@ -59,13 +62,11 @@ public class BorrowController {
     @GetMapping("/admin/borrow/return")
     public String returnBook(@RequestParam Integer id) {
         borrowService.returnBook(id);
-        return "redirect:/admin/borrow/list";
+        return "redirect:/admin/v2/borrows";
     }
 
     @GetMapping("/reader/borrows")
-    public String myBorrows(HttpSession session, Model model) {
-        Reader reader = (Reader) session.getAttribute("loginUser");
-        model.addAttribute("records", borrowService.findByReaderId(reader.getId()));
-        return "reader/my-borrows";
+    public String myBorrows(HttpSession session) {
+        return "redirect:/reader/v2/borrows";
     }
 }

@@ -1,23 +1,27 @@
 package cn.edu.library.controller;
 
-import java.io.IOException;
-
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest; // 【本次修改】新增：引入上传工具类
-
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping; // 【本次修改】新增：接收上传文件
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.multipart.MultipartFile; // 【本次修改】新增：用于获取 webapp 上传目录
-
 import cn.edu.library.entity.Book;
 import cn.edu.library.service.BookService;
 import cn.edu.library.util.UploadUtil;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.net.URLEncoder;
 
 /**
- * 图书管理控制器：对应管理员端图书新增、修改、删除、查询，以及读者端图书查询。
+ * 图书管理控制器。
+ *
+ * 【本次修改】
+ * 1. /admin/books 不再返回旧版 admin/book-list.jsp，统一跳转 /admin/v2/books。
+ * 2. /reader/books 不再返回旧版 reader/book-search.jsp，统一跳转 /reader/v2/books。
+ * 3. 新增、修改、删除完成后回到 v2 图书管理页。
  */
 @Controller
 public class BookController {
@@ -26,13 +30,8 @@ public class BookController {
     private BookService bookService;
 
     @GetMapping("/admin/books")
-    public String adminBooks(@RequestParam(required = false) String keyword,
-                             @RequestParam(required = false) String category,
-                             Model model) {
-        model.addAttribute("books", bookService.search(keyword, category));
-        model.addAttribute("keyword", keyword);
-        model.addAttribute("category", category);
-        return "admin/book-list";
+    public String adminBooks(@RequestParam(required = false) String keyword) throws Exception {
+        return "redirect:/admin/v2/books" + query("keyword", keyword);
     }
 
     @GetMapping("/admin/book/add")
@@ -42,21 +41,16 @@ public class BookController {
         return "admin/book-form";
     }
 
-    /**
-     * 【本次修改】新增图书时支持上传图书封面
-     */
     @PostMapping("/admin/book/add")
     public String add(Book book,
                       @RequestParam(value = "coverFile", required = false) MultipartFile coverFile,
                       HttpServletRequest request) throws IOException {
-
         String coverImage = UploadUtil.saveImage(coverFile, request, "book");
         if (coverImage != null) {
             book.setCoverImage(coverImage);
         }
-
         bookService.save(book);
-        return "redirect:/admin/books";
+        return "redirect:/admin/v2/books";
     }
 
     @GetMapping("/admin/book/edit")
@@ -66,41 +60,36 @@ public class BookController {
         return "admin/book-form";
     }
 
-    /**
-     * 【本次修改】修改图书时支持重新上传图书封面
-     * 如果没有重新上传，则保留原来的封面。
-     */
     @PostMapping("/admin/book/edit")
     public String edit(Book book,
                        @RequestParam(value = "coverFile", required = false) MultipartFile coverFile,
                        HttpServletRequest request) throws IOException {
-
         Book oldBook = bookService.findById(book.getId());
-
         String coverImage = UploadUtil.saveImage(coverFile, request, "book");
         if (coverImage != null) {
             book.setCoverImage(coverImage);
         } else if (oldBook != null) {
             book.setCoverImage(oldBook.getCoverImage());
         }
-
         bookService.update(book);
-        return "redirect:/admin/books";
+        return "redirect:/admin/v2/books";
     }
 
     @GetMapping("/admin/book/delete")
     public String delete(@RequestParam Integer id) {
         bookService.delete(id);
-        return "redirect:/admin/books";
+        return "redirect:/admin/v2/books";
     }
 
     @GetMapping("/reader/books")
-    public String readerBooks(@RequestParam(required = false) String keyword,
-                              @RequestParam(required = false) String category,
-                              Model model) {
-        model.addAttribute("books", bookService.search(keyword, category));
-        model.addAttribute("keyword", keyword);
-        model.addAttribute("category", category);
-        return "reader/book-search";
+    public String readerBooks(@RequestParam(required = false) String keyword) throws Exception {
+        return "redirect:/reader/v2/books" + query("keyword", keyword);
+    }
+
+    private String query(String key, String value) throws Exception {
+        if (value == null || value.trim().isEmpty()) {
+            return "";
+        }
+        return "?" + key + "=" + URLEncoder.encode(value.trim(), "UTF-8");
     }
 }

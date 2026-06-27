@@ -4,7 +4,11 @@ import cn.edu.library.mapper.V2Mapper;
 import cn.edu.library.util.UploadUtil;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
@@ -14,7 +18,11 @@ import java.lang.reflect.Method;
 import java.util.Calendar;
 
 /**
- * 【本次新增】读者端 v2 完整功能控制器。
+ * 读者端 v2 控制器。
+ *
+ * 【本次修改】
+ * 1. 座位预约增加“同一读者同一日期同一时段只能预约一个座位”的后端校验。
+ * 2. 预约结果通过 seatMsg 返回给 JSP 页面提示。
  */
 @Controller
 @RequestMapping("/reader/v2")
@@ -53,9 +61,7 @@ public class V2ReaderController {
     }
 
     @GetMapping("/borrows")
-    public String borrows(@RequestParam(defaultValue = "0") Integer history,
-                          Model model,
-                          HttpSession session) {
+    public String borrows(Model model, HttpSession session) {
         Integer readerId = currentUserId(session);
         model.addAttribute("currentList", v2Mapper.listReaderBorrows(readerId, 0));
         model.addAttribute("historyList", v2Mapper.listReaderBorrows(readerId, 1));
@@ -74,6 +80,7 @@ public class V2ReaderController {
     public String seats(@RequestParam(required = false) Integer floorId,
                         @RequestParam(required = false) String reservationDate,
                         @RequestParam(required = false) Integer timeSlotId,
+                        @RequestParam(required = false) String seatMsg,
                         Model model,
                         HttpSession session) {
         Integer readerId = currentUserId(session);
@@ -85,6 +92,7 @@ public class V2ReaderController {
         model.addAttribute("floorId", floorId);
         model.addAttribute("reservationDate", reservationDate);
         model.addAttribute("timeSlotId", timeSlotId);
+        model.addAttribute("seatMsg", seatMsg);
         return "reader/v2-seats";
     }
 
@@ -96,13 +104,25 @@ public class V2ReaderController {
                               HttpSession session) {
         Integer readerId = currentUserId(session);
         v2Mapper.clearExpiredLocks();
-        if (v2Mapper.countSeatConflict(seatId, reservationDate, timeSlotId) == 0) {
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.MINUTE, 10);
-            v2Mapper.lockSeat(seatId, readerId, reservationDate, timeSlotId, calendar.getTime());
-            v2Mapper.createSeatReservation(seatId, readerId, reservationDate, timeSlotId);
+
+        /*
+         * 【本次新增】
+         * 同一读者在同一日期、同一时段只能预约一个座位。
+         */
+        if (v2Mapper.countReaderSeatTimeReservation(readerId, reservationDate, timeSlotId) > 0) {
+            return redirectSeat(floorId, reservationDate, timeSlotId, "one");
         }
-        return "redirect:/reader/v2/seats?floorId=" + (floorId == null ? "" : floorId) + "&reservationDate=" + reservationDate + "&timeSlotId=" + timeSlotId;
+
+        if (v2Mapper.countSeatConflict(seatId, reservationDate, timeSlotId) > 0) {
+            return redirectSeat(floorId, reservationDate, timeSlotId, "occupied");
+        }
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MINUTE, 10);
+        v2Mapper.lockSeat(seatId, readerId, reservationDate, timeSlotId, calendar.getTime());
+        v2Mapper.createSeatReservation(seatId, readerId, reservationDate, timeSlotId);
+
+        return redirectSeat(floorId, reservationDate, timeSlotId, "success");
     }
 
     @GetMapping("/seats/cancel/{id}")
@@ -131,6 +151,13 @@ public class V2ReaderController {
         return "redirect:/reader/v2/profile";
     }
 
+    private String redirectSeat(Integer floorId, String reservationDate, Integer timeSlotId, String seatMsg) {
+        return "redirect:/reader/v2/seats?floorId=" + (floorId == null ? "" : floorId)
+                + "&reservationDate=" + reservationDate
+                + "&timeSlotId=" + timeSlotId
+                + "&seatMsg=" + seatMsg;
+    }
+
     private Integer currentUserId(HttpSession session) {
         Object user = session.getAttribute("loginUser");
         Object value = call(user, "getId");
@@ -138,7 +165,9 @@ public class V2ReaderController {
     }
 
     private Object call(Object obj, String methodName) {
-        if (obj == null) return null;
+        if (obj == null) {
+            return null;
+        }
         try {
             Method method = obj.getClass().getMethod(methodName);
             return method.invoke(obj);

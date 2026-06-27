@@ -18,9 +18,9 @@
             <td>${r.bookNo}</td>
             <td>${r.bookName}</td>
             <td>${r.category}</td>
-            <td><fmt:formatDate value="${r.borrowTime}" pattern="yyyy-MM-dd"/></td>
-            <td><fmt:formatDate value="${r.dueTime}" pattern="yyyy-MM-dd"/></td>
-            <td><fmt:formatDate value="${r.returnTime}" pattern="yyyy-MM-dd"/></td>
+            <td>${fn:replace(r.borrowTime, 'T', ' ')}</td>
+            <td>${fn:replace(r.dueTime, 'T', ' ')}</td>
+            <td>${fn:replace(r.returnTime, 'T', ' ')}</td>
             <td>${r.status}</td>
             <td>${r.fine}</td>
         </tr>
@@ -30,5 +30,6 @@
 <%@ include file="../common/footer.jsp" %>
 </body>
 </html>
+
 
 

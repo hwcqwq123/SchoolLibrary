@@ -4,22 +4,32 @@ import cn.edu.library.entity.Reader;
 import cn.edu.library.service.ReaderService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
+import java.net.URLEncoder;
 
-/** 读者管理控制器。 */
+/**
+ * 读者管理控制器。
+ *
+ * 【本次修改】
+ * 旧入口统一跳转到 v2，避免进入旧版简陋布局。
+ */
 @Controller
 public class ReaderController {
+
     @Resource
     private ReaderService readerService;
 
     @GetMapping("/admin/readers")
-    public String list(@RequestParam(required = false) String keyword, Model model) {
-        model.addAttribute("readers", readerService.search(keyword));
-        model.addAttribute("keyword", keyword);
-        return "admin/reader-list";
+    public String list(@RequestParam(required = false) String keyword) throws Exception {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return "redirect:/admin/v2/readers";
+        }
+        return "redirect:/admin/v2/readers?keyword=" + URLEncoder.encode(keyword.trim(), "UTF-8");
     }
 
     @GetMapping("/admin/reader/add")
@@ -32,7 +42,7 @@ public class ReaderController {
     @PostMapping("/admin/reader/add")
     public String add(Reader reader) {
         readerService.save(reader);
-        return "redirect:/admin/readers";
+        return "redirect:/admin/v2/readers";
     }
 
     @GetMapping("/admin/reader/edit")
@@ -45,18 +55,18 @@ public class ReaderController {
     @PostMapping("/admin/reader/edit")
     public String edit(Reader reader) {
         readerService.update(reader);
-        return "redirect:/admin/readers";
+        return "redirect:/admin/v2/readers";
     }
 
     @GetMapping("/admin/reader/delete")
     public String delete(@RequestParam Integer id) {
         readerService.disable(id);
-        return "redirect:/admin/readers";
+        return "redirect:/admin/v2/readers";
     }
 
     @GetMapping("/reader/home")
     public String readerHome() {
-        return "reader/home";
+        return "redirect:/reader/v2/home";
     }
 
     @GetMapping("/reader/password")

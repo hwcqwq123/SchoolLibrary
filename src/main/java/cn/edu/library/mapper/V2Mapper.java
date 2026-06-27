@@ -1,17 +1,18 @@
 package cn.edu.library.mapper;
 
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
-import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 【本次新增】v2 完整功能通用 Mapper。
- * 说明：
- * 1. 为了降低对已有实体类字段的耦合，这里大量使用 Map 返回前端展示数据。
- * 2. SQL 写在 src/main/resources/mapper/V2Mapper.xml。
+ * v2 通用 Mapper。
+ *
+ * 【本次修改】
+ * 新增 countReaderSeatTimeReservation：
+ * 用于限制同一读者在同一日期、同一时段只能预约一个座位。
  */
 public interface V2Mapper {
 
@@ -102,6 +103,19 @@ public interface V2Mapper {
     int countSeatConflict(@Param("seatId") Integer seatId,
                           @Param("reservationDate") String reservationDate,
                           @Param("timeSlotId") Integer timeSlotId);
+
+    /**
+     * 【本次新增】
+     * 判断当前读者在同一日期、同一时段是否已经有有效预约。
+     */
+    @Select("SELECT COUNT(1) FROM seat_reservation " +
+            "WHERE reader_id = #{readerId} " +
+            "AND reservation_date = #{reservationDate} " +
+            "AND time_slot_id = #{timeSlotId} " +
+            "AND status = 1")
+    int countReaderSeatTimeReservation(@Param("readerId") Integer readerId,
+                                       @Param("reservationDate") String reservationDate,
+                                       @Param("timeSlotId") Integer timeSlotId);
 
     int lockSeat(@Param("seatId") Integer seatId,
                  @Param("readerId") Integer readerId,

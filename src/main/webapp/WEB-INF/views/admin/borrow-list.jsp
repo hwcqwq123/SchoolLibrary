@@ -30,9 +30,9 @@
         <tr>
             <td>${r.readerNo} / ${r.readerName}</td>
             <td>${r.bookNo} / ${r.bookName}</td>
-            <td><fmt:formatDate value="${r.borrowTime}" pattern="yyyy-MM-dd"/></td>
-            <td><fmt:formatDate value="${r.dueTime}" pattern="yyyy-MM-dd"/></td>
-            <td><fmt:formatDate value="${r.returnTime}" pattern="yyyy-MM-dd"/></td>
+            <td>${fn:replace(r.borrowTime, 'T', ' ')}</td>
+            <td>${fn:replace(r.dueTime, 'T', ' ')}</td>
+            <td>${fn:replace(r.returnTime, 'T', ' ')}</td>
             <td>${r.status}</td>
             <td>${r.overdueDays}</td>
             <td>${r.fine}</td>
@@ -48,5 +48,6 @@
 <%@ include file="../common/footer.jsp" %>
 </body>
 </html>
+
 
 
