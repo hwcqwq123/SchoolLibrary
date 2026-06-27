@@ -1,60 +1,256 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="cn.edu.library.mapper.ReaderMapper">
-    <resultMap id="ReaderMap" type="Reader">
-        <id column="id" property="id"/>
-        <result column="reader_no" property="readerNo"/>
-        <result column="username" property="username"/>
-        <result column="password" property="password"/>
-        <result column="name" property="name"/>
-        <result column="gender" property="gender"/>
-        <result column="phone" property="phone"/>
-        <result column="email" property="email"/>
-        <result column="department" property="department"/>
-        <result column="status" property="status"/>
-        <result column="create_time" property="createTime"/>
+
+    <!--
+        【本次修改】
+        读者字段显式映射。
+        作用：
+        1. 兼容 reader_no、student_no、class_name 这类下划线字段。
+        2. 兼容 v2 新增的学院、专业、班级、头像字段。
+    -->
+    <resultMap id="ReaderResultMap" type="cn.edu.library.entity.Reader">
+        <id property="id" column="id"/>
+        <result property="readerNo" column="reader_no"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="studentNo" column="student_no"/>
+        <result property="name" column="name"/>
+        <result property="gender" column="gender"/>
+        <result property="college" column="college"/>
+        <result property="major" column="major"/>
+        <result property="className" column="class_name"/>
+        <result property="department" column="department"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="avatar" column="avatar"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
     </resultMap>
 
-    <select id="findById" resultMap="ReaderMap">
-        SELECT * FROM reader WHERE id = #{id}
-    </select>
-
-    <select id="findByReaderNo" resultMap="ReaderMap">
-        SELECT * FROM reader WHERE reader_no = #{readerNo} AND status = 1
-    </select>
-
-    <select id="search" resultMap="ReaderMap">
-        SELECT * FROM reader
+    <!--
+        【本次修改】
+        读者登录 SQL。
+        支持：
+        1. username 登录
+        2. reader_no 登录
+        3. student_no 登录
+        4. 明文密码或 MD5 密码兼容
+    -->
+    <select id="login" resultMap="ReaderResultMap">
+        SELECT
+            id,
+            reader_no,
+            username,
+            password,
+            student_no,
+            name,
+            gender,
+            college,
+            major,
+            class_name,
+            department,
+            phone,
+            email,
+            avatar,
+            status,
+            create_time,
+            update_time
+        FROM reader
         WHERE status = 1
-        <if test="keyword != null and keyword != ''">
-            AND (reader_no LIKE CONCAT('%', #{keyword}, '%')
-                 OR name LIKE CONCAT('%', #{keyword}, '%')
-                 OR phone LIKE CONCAT('%', #{keyword}, '%')
-                 OR department LIKE CONCAT('%', #{keyword}, '%'))
-        </if>
+          AND (
+              username = #{username}
+              OR reader_no = #{username}
+              OR student_no = #{username}
+          )
+          AND (
+              password = #{password}
+              OR password = MD5(#{password})
+              OR password = LOWER(MD5(#{password}))
+              OR password = UPPER(MD5(#{password}))
+          )
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="ReaderResultMap">
+        SELECT
+            id,
+            reader_no,
+            username,
+            password,
+            student_no,
+            name,
+            gender,
+            college,
+            major,
+            class_name,
+            department,
+            phone,
+            email,
+            avatar,
+            status,
+            create_time,
+            update_time
+        FROM reader
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByReaderNo" resultMap="ReaderResultMap">
+        SELECT
+            id,
+            reader_no,
+            username,
+            password,
+            student_no,
+            name,
+            gender,
+            college,
+            major,
+            class_name,
+            department,
+            phone,
+            email,
+            avatar,
+            status,
+            create_time,
+            update_time
+        FROM reader
+        WHERE reader_no = #{readerNo}
+        LIMIT 1
+    </select>
+
+    <select id="search" resultMap="ReaderResultMap">
+        SELECT
+            id,
+            reader_no,
+            username,
+            password,
+            student_no,
+            name,
+            gender,
+            college,
+            major,
+            class_name,
+            department,
+            phone,
+            email,
+            avatar,
+            status,
+            create_time,
+            update_time
+        FROM reader
+        <where>
+            status = 1
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    reader_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR username LIKE CONCAT('%', #{keyword}, '%')
+                    OR student_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR name LIKE CONCAT('%', #{keyword}, '%')
+                    OR college LIKE CONCAT('%', #{keyword}, '%')
+                    OR major LIKE CONCAT('%', #{keyword}, '%')
+                    OR phone LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+        </where>
         ORDER BY id DESC
     </select>
 
-    <insert id="insert" parameterType="Reader" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO reader(reader_no, username, password, name, gender, phone, email, department, status, create_time)
-        VALUES(#{readerNo}, #{username}, #{password}, #{name}, #{gender}, #{phone}, #{email}, #{department}, 1, NOW())
+    <insert id="insert" parameterType="cn.edu.library.entity.Reader">
+        INSERT INTO reader(
+            reader_no,
+            username,
+            password,
+            student_no,
+            name,
+            gender,
+            college,
+            major,
+            class_name,
+            department,
+            phone,
+            email,
+            avatar,
+            status,
+            create_time
+        )
+        VALUES(
+            #{readerNo},
+            #{username},
+            #{password},
+            #{studentNo},
+            #{name},
+            #{gender},
+            #{college},
+            #{major},
+            #{className},
+            #{department},
+            #{phone},
+            #{email},
+            #{avatar},
+            1,
+            NOW()
+        )
     </insert>
 
-    <update id="update" parameterType="Reader">
+    <update id="update" parameterType="cn.edu.library.entity.Reader">
         UPDATE reader
-        SET name = #{name}, gender = #{gender}, phone = #{phone}, email = #{email}, department = #{department}
+        SET
+            reader_no = #{readerNo},
+            username = #{username},
+            student_no = #{studentNo},
+            name = #{name},
+            gender = #{gender},
+            college = #{college},
+            major = #{major},
+            class_name = #{className},
+            department = #{department},
+            phone = #{phone},
+            email = #{email},
+            avatar = #{avatar},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 
+    <!--
+        【本次修改】
+        delete 方法：逻辑禁用读者。
+        保留 delete 是为了兼容旧 Controller 或 Service。
+    -->
+    <update id="delete">
+        UPDATE reader
+        SET status = 0,
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!--
+        【本次修改】
+        disable 方法：逻辑禁用读者。
+        ReaderServiceImpl.java 当前调用 readerMapper.disable(id)，所以必须保留。
+    -->
     <update id="disable">
-        UPDATE reader SET status = 0 WHERE id = #{id}
+        UPDATE reader
+        SET status = 0,
+            update_time = NOW()
+        WHERE id = #{id}
     </update>
 
     <update id="updatePassword">
-        UPDATE reader SET password = #{password} WHERE id = #{id}
+        UPDATE reader
+        SET password = #{password},
+            update_time = NOW()
+        WHERE id = #{id}
     </update>
 
     <select id="countAll" resultType="int">
-        SELECT COUNT(1) FROM reader WHERE status = 1
+        SELECT COUNT(1)
+        FROM reader
+        WHERE status = 1
     </select>
+
 </mapper>

@@ -1,68 +1,165 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="cn.edu.library.mapper.BookMapper">
-    <resultMap id="BookMap" type="Book">
-        <id column="id" property="id"/>
-        <result column="book_no" property="bookNo"/>
-        <result column="book_name" property="bookName"/>
-        <result column="author" property="author"/>
-        <result column="publisher" property="publisher"/>
-        <result column="category" property="category"/>
-        <result column="total_count" property="totalCount"/>
-        <result column="available_count" property="availableCount"/>
-        <result column="location" property="location"/>
-        <result column="status" property="status"/>
-        <result column="create_time" property="createTime"/>
+
+    <!-- 【本次修改】新增完整 resultMap，显式映射 v2 新字段 -->
+    <resultMap id="BookResultMap" type="cn.edu.library.entity.Book">
+        <id property="id" column="id"/>
+        <result property="bookNo" column="book_no"/>
+        <result property="isbn" column="isbn"/>
+        <result property="bookName" column="book_name"/>
+        <result property="author" column="author"/>
+        <result property="publisher" column="publisher"/>
+        <result property="category" column="category"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="totalCount" column="total_count"/>
+        <result property="availableCount" column="available_count"/>
+        <result property="location" column="location"/>
+        <result property="coverImage" column="cover_image"/>
+        <result property="description" column="description"/>
+        <result property="borrowCount" column="borrow_count"/>
+        <result property="recommendFlag" column="recommend_flag"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
     </resultMap>
 
-    <select id="findById" resultMap="BookMap">
-        SELECT * FROM book WHERE id = #{id}
+    <select id="findById" resultMap="BookResultMap">
+        SELECT
+            b.*,
+            c.category_name AS category_name
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        WHERE b.id = #{id}
     </select>
 
-    <select id="findByBookNo" resultMap="BookMap">
-        SELECT * FROM book WHERE book_no = #{bookNo} AND status = 1
+    <select id="findByBookNo" resultMap="BookResultMap">
+        SELECT
+            b.*,
+            c.category_name AS category_name
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        WHERE b.book_no = #{bookNo}
+          AND b.status = 1
     </select>
 
-    <select id="search" resultMap="BookMap">
-        SELECT * FROM book
-        WHERE status = 1
-        <if test="keyword != null and keyword != ''">
-            AND (book_no LIKE CONCAT('%', #{keyword}, '%')
-                 OR book_name LIKE CONCAT('%', #{keyword}, '%')
-                 OR author LIKE CONCAT('%', #{keyword}, '%')
-                 OR publisher LIKE CONCAT('%', #{keyword}, '%'))
-        </if>
-        <if test="category != null and category != ''">
-            AND category = #{category}
-        </if>
-        ORDER BY id DESC
+    <select id="search" resultMap="BookResultMap">
+        SELECT
+            b.*,
+            c.category_name AS category_name
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        <where>
+            b.status = 1
+
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    b.book_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR b.book_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR b.author LIKE CONCAT('%', #{keyword}, '%')
+                    OR b.publisher LIKE CONCAT('%', #{keyword}, '%')
+                    OR b.isbn LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+
+            <if test="category != null and category != ''">
+                AND b.category = #{category}
+            </if>
+        </where>
+        ORDER BY b.id DESC
     </select>
 
-    <insert id="insert" parameterType="Book" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO book(book_no, book_name, author, publisher, category, total_count, available_count, location, status, create_time)
-        VALUES(#{bookNo}, #{bookName}, #{author}, #{publisher}, #{category}, #{totalCount}, #{availableCount}, #{location}, 1, NOW())
+    <!-- 【本次修改】insert 新增 isbn、cover_image、description、borrow_count、recommend_flag 等字段 -->
+    <insert id="insert" parameterType="cn.edu.library.entity.Book">
+        INSERT INTO book(
+            book_no,
+            isbn,
+            book_name,
+            author,
+            publisher,
+            category,
+            category_id,
+            total_count,
+            available_count,
+            location,
+            cover_image,
+            description,
+            borrow_count,
+            recommend_flag,
+            status,
+            create_time
+        )
+        VALUES(
+            #{bookNo},
+            #{isbn},
+            #{bookName},
+            #{author},
+            #{publisher},
+            #{category},
+            #{categoryId},
+            #{totalCount},
+            #{availableCount},
+            #{location},
+            #{coverImage},
+            #{description},
+            #{borrowCount},
+            #{recommendFlag},
+            1,
+            NOW()
+        )
     </insert>
 
-    <update id="update" parameterType="Book">
+    <!-- 【本次修改】update 新增 isbn、cover_image、description、recommend_flag 等字段 -->
+    <update id="update" parameterType="cn.edu.library.entity.Book">
         UPDATE book
-        SET book_name = #{bookName}, author = #{author}, publisher = #{publisher}, category = #{category},
-            total_count = #{totalCount}, available_count = #{availableCount}, location = #{location}
+        SET
+            isbn = #{isbn},
+            book_name = #{bookName},
+            author = #{author},
+            publisher = #{publisher},
+            category = #{category},
+            category_id = #{categoryId},
+            total_count = #{totalCount},
+            available_count = #{availableCount},
+            location = #{location},
+            cover_image = #{coverImage},
+            description = #{description},
+            recommend_flag = #{recommendFlag},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 
     <update id="delete">
-        UPDATE book SET status = 0 WHERE id = #{id}
+        UPDATE book
+        SET status = 0,
+            update_time = NOW()
+        WHERE id = #{id}
     </update>
 
     <update id="decreaseAvailable">
-        UPDATE book SET available_count = available_count - 1 WHERE id = #{id} AND available_count &gt; 0
+        UPDATE book
+        SET available_count = available_count - 1,
+            borrow_count = borrow_count + 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND available_count > 0
     </update>
 
     <update id="increaseAvailable">
-        UPDATE book SET available_count = available_count + 1 WHERE id = #{id}
+        UPDATE book
+        SET available_count = available_count + 1,
+            update_time = NOW()
+        WHERE id = #{id}
     </update>
 
     <select id="countAll" resultType="int">
-        SELECT COUNT(1) FROM book WHERE status = 1
+        SELECT COUNT(1)
+        FROM book
+        WHERE status = 1
     </select>
+
 </mapper>

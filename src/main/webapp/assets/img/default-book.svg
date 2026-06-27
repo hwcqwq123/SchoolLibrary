@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240" viewBox="0 0 180 240">
+    <!-- 【本次新增】默认图书封面，占位图 -->
+    <rect width="180" height="240" rx="14" fill="#f2f2f2"/>
+    <rect x="28" y="36" width="124" height="168" rx="8" fill="#ffffff" stroke="#cccccc" stroke-width="2"/>
+    <rect x="48" y="68" width="84" height="10" rx="5" fill="#cccccc"/>
+    <rect x="48" y="92" width="84" height="8" rx="4" fill="#dddddd"/>
+    <rect x="48" y="112" width="68" height="8" rx="4" fill="#dddddd"/>
+    <circle cx="90" cy="158" r="24" fill="#e0e0e0"/>
+    <text x="90" y="218" text-anchor="middle" font-size="16" fill="#999999" font-family="Arial, sans-serif">BOOK</text>
+</svg>

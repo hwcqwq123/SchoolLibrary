@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 【本次修改】完整保留 SpringMVC 基础配置，并新增文件上传解析器 multipartResolver -->
 <beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:mvc="http://www.springframework.org/schema/mvc"
        xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="
-         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
-         http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd
-         http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+           http://www.springframework.org/schema/beans
+           https://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           https://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/mvc
+           https://www.springframework.org/schema/mvc/spring-mvc.xsd">
 
-    <!-- 扫描 Controller 与拦截器 -->
-    <context:component-scan base-package="cn.edu.library.controller,cn.edu.library.interceptor"/>
+    <!-- 扫描 Controller -->
+    <context:component-scan base-package="cn.edu.library.controller"/>
 
     <!-- 开启 SpringMVC 注解驱动 -->
     <mvc:annotation-driven/>
@@ -17,26 +21,35 @@
     <!-- 静态资源放行 -->
     <mvc:resources mapping="/assets/**" location="/assets/"/>
 
+    <!-- 【本次修改】新增：上传文件访问路径放行，例如 /uploads/book/xxx.jpg -->
+    <mvc:resources mapping="/uploads/**" location="/uploads/"/>
+
+    <!-- 【本次修改】新增：文件上传解析器 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <!-- 上传编码 -->
+        <property name="defaultEncoding" value="UTF-8"/>
+        <!-- 单次上传最大 10MB -->
+        <property name="maxUploadSize" value="10485760"/>
+        <!-- 内存缓存大小 -->
+        <property name="maxInMemorySize" value="4096"/>
+    </bean>
+
+    <!-- 登录拦截器 -->
+    <mvc:interceptors>
+        <mvc:interceptor>
+            <mvc:mapping path="/admin/**"/>
+            <mvc:mapping path="/reader/**"/>
+            <mvc:exclude-mapping path="/login"/>
+            <mvc:exclude-mapping path="/logout"/>
+            <bean class="cn.edu.library.interceptor.LoginInterceptor"/>
+        </mvc:interceptor>
+    </mvc:interceptors>
+
     <!-- JSP 视图解析器 -->
     <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
         <property name="prefix" value="/WEB-INF/views/"/>
         <property name="suffix" value=".jsp"/>
+        <property name="contentType" value="text/html;charset=UTF-8"/>
     </bean>
 
-    <!-- 文件上传解析器，后续做导入功能时可以直接使用 -->
-    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
-        <property name="defaultEncoding" value="UTF-8"/>
-        <property name="maxUploadSize" value="10485760"/>
-    </bean>
-
-    <!-- 登录与权限拦截器 -->
-    <mvc:interceptors>
-        <mvc:interceptor>
-            <mvc:mapping path="/**"/>
-            <mvc:exclude-mapping path="/login"/>
-            <mvc:exclude-mapping path="/logout"/>
-            <mvc:exclude-mapping path="/assets/**"/>
-            <bean class="cn.edu.library.interceptor.LoginInterceptor"/>
-        </mvc:interceptor>
-    </mvc:interceptors>
 </beans>
