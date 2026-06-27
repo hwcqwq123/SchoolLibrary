@@ -1,0 +1,617 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cn.edu.library.mapper.V2Mapper">
+
+    <!-- 【本次新增】管理员首页统计 -->
+    <select id="dashboardStats" resultType="map">
+        SELECT
+            (SELECT COUNT(1) FROM book WHERE status = 1) AS bookTotal,
+            (SELECT COUNT(1) FROM reader WHERE status = 1) AS readerTotal,
+            (SELECT COUNT(1) FROM borrow_record WHERE status = 'BORROWED') AS borrowedTotal,
+            (SELECT COUNT(1) FROM borrow_record WHERE status = 'BORROWED' AND due_date &lt; CURDATE()) AS overdueTotal,
+            (SELECT COUNT(1) FROM borrow_record WHERE DATE(borrow_date) = CURDATE()) AS todayBorrowTotal,
+            (SELECT COUNT(1) FROM seat_reservation WHERE status = 1 AND reservation_date = CURDATE()) AS todaySeatTotal
+    </select>
+
+    <select id="categoryStats" resultType="map">
+        SELECT c.id AS id,
+               c.category_name AS categoryName,
+               COUNT(b.id) AS bookCount
+        FROM book_category c
+        LEFT JOIN book b ON b.category_id = c.id AND b.status = 1
+        WHERE c.status = 1
+        GROUP BY c.id, c.category_name
+        ORDER BY bookCount DESC, c.id ASC
+    </select>
+
+    <select id="latestNotices" resultType="map">
+        SELECT id AS id, title AS title, content AS content, status AS status, create_time AS createTime
+        FROM notice
+        WHERE status = 1
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="recommendBooks" resultType="map">
+        SELECT b.id AS id,
+               b.book_no AS bookNo,
+               b.book_name AS bookName,
+               b.author AS author,
+               b.publisher AS publisher,
+               b.cover_image AS coverImage,
+               b.available_count AS availableCount,
+               b.borrow_count AS borrowCount,
+               c.category_name AS categoryName
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        WHERE b.status = 1
+          AND (b.recommend_flag = 1 OR b.borrow_count &gt;= 0)
+        ORDER BY b.recommend_flag DESC, b.borrow_count DESC, b.id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="recentBorrows" resultType="map">
+        SELECT br.id AS id,
+               r.name AS readerName,
+               r.reader_no AS readerNo,
+               b.book_name AS bookName,
+               br.borrow_date AS borrowDate,
+               br.due_date AS dueDate,
+               br.status AS status
+        FROM borrow_record br
+        LEFT JOIN reader r ON br.reader_id = r.id
+        LEFT JOIN book b ON br.book_id = b.id
+        ORDER BY br.borrow_date DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="overdueList" resultType="map">
+        SELECT br.id AS id,
+               r.name AS readerName,
+               r.reader_no AS readerNo,
+               b.book_name AS bookName,
+               br.due_date AS dueDate,
+               DATEDIFF(CURDATE(), br.due_date) AS overdueDays,
+               br.fine AS fine
+        FROM borrow_record br
+        LEFT JOIN reader r ON br.reader_id = r.id
+        LEFT JOIN book b ON br.book_id = b.id
+        WHERE br.status = 'BORROWED'
+          AND br.due_date &lt; CURDATE()
+        ORDER BY br.due_date ASC
+    </select>
+
+    <!-- 分类管理 -->
+    <select id="listCategories" resultType="map">
+        SELECT c.id AS id,
+               c.category_name AS categoryName,
+               c.description AS description,
+               c.status AS status,
+               c.create_time AS createTime,
+               COUNT(b.id) AS bookCount
+        FROM book_category c
+        LEFT JOIN book b ON b.category_id = c.id AND b.status = 1
+        <where>
+            <if test="keyword != null and keyword != ''">
+                c.category_name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        GROUP BY c.id, c.category_name, c.description, c.status, c.create_time
+        ORDER BY c.status DESC, c.id DESC
+    </select>
+
+    <select id="findCategory" resultType="map">
+        SELECT id AS id, category_name AS categoryName, description AS description, status AS status
+        FROM book_category
+        WHERE id = #{id}
+    </select>
+
+    <insert id="addCategory">
+        INSERT INTO book_category(category_name, description, status, create_time)
+        VALUES(#{categoryName}, #{description}, 1, NOW())
+    </insert>
+
+    <update id="updateCategory">
+        UPDATE book_category
+        SET category_name = #{categoryName},
+            description = #{description},
+            status = #{status},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="disableCategory">
+        UPDATE book_category SET status = 0, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <!-- 公告管理 -->
+    <select id="listNotices" resultType="map">
+        SELECT n.id AS id,
+               n.title AS title,
+               n.content AS content,
+               n.status AS status,
+               n.create_time AS createTime,
+               n.update_time AS updateTime,
+               a.real_name AS publisherName
+        FROM notice n
+        LEFT JOIN admin a ON n.publisher_id = a.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                n.title LIKE CONCAT('%', #{keyword}, '%') OR n.content LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY n.status DESC, n.create_time DESC
+    </select>
+
+    <select id="findNotice" resultType="map">
+        SELECT id AS id, title AS title, content AS content, status AS status
+        FROM notice
+        WHERE id = #{id}
+    </select>
+
+    <insert id="addNotice">
+        INSERT INTO notice(title, content, publisher_id, status, create_time)
+        VALUES(#{title}, #{content}, #{publisherId}, #{status}, NOW())
+    </insert>
+
+    <update id="updateNotice">
+        UPDATE notice
+        SET title = #{title}, content = #{content}, status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteNotice">
+        UPDATE notice SET status = 0, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <!-- 续借管理 -->
+    <select id="listRenewRequests" resultType="map">
+        SELECT rr.id AS id,
+               rr.borrow_record_id AS borrowRecordId,
+               rr.reader_id AS readerId,
+               r.reader_no AS readerNo,
+               r.name AS readerName,
+               b.book_name AS bookName,
+               br.borrow_date AS borrowDate,
+               br.due_date AS dueDate,
+               rr.reason AS reason,
+               rr.status AS status,
+               rr.apply_time AS applyTime,
+               rr.handle_time AS handleTime,
+               rr.handler_name AS handlerName,
+               rr.remark AS remark
+        FROM renew_request rr
+        LEFT JOIN borrow_record br ON rr.borrow_record_id = br.id
+        LEFT JOIN reader r ON br.reader_id = r.id
+        LEFT JOIN book b ON br.book_id = b.id
+        <where>
+            <if test="status != null and status != ''">
+                rr.status = #{status}
+            </if>
+        </where>
+        ORDER BY rr.apply_time DESC
+    </select>
+
+    <insert id="addRenewRequest">
+        INSERT INTO renew_request(borrow_record_id, reader_id, reason, status, apply_time)
+        SELECT #{borrowRecordId}, #{readerId}, #{reason}, 'PENDING', NOW()
+        FROM DUAL
+        WHERE NOT EXISTS (
+            SELECT 1 FROM renew_request
+            WHERE borrow_record_id = #{borrowRecordId} AND status = 'PENDING'
+        )
+    </insert>
+
+    <update id="approveRenew">
+        UPDATE renew_request
+        SET status = 'APPROVED',
+            handler_id = #{handlerId},
+            handler_name = #{handlerName},
+            remark = #{remark},
+            handle_time = NOW(),
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="rejectRenew">
+        UPDATE renew_request
+        SET status = 'REJECTED',
+            handler_id = #{handlerId},
+            handler_name = #{handlerName},
+            remark = #{remark},
+            handle_time = NOW(),
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="extendBorrowDueDate">
+        UPDATE borrow_record
+        SET due_date = DATE_ADD(due_date, INTERVAL 7 DAY), update_time = NOW()
+        WHERE id = #{borrowRecordId}
+    </update>
+
+    <update id="increaseBorrowRenewCount">
+        UPDATE borrow_record
+        SET renew_count = IFNULL(renew_count, 0) + 1, update_time = NOW()
+        WHERE id = #{borrowRecordId}
+    </update>
+
+    <!-- 罚款管理 -->
+    <select id="listFines" resultType="map">
+        SELECT fr.id AS id,
+               fr.borrow_record_id AS borrowRecordId,
+               r.reader_no AS readerNo,
+               r.name AS readerName,
+               b.book_name AS bookName,
+               fr.amount AS amount,
+               fr.status AS status,
+               fr.pay_time AS payTime,
+               fr.create_time AS createTime,
+               br.due_date AS dueDate
+        FROM fine_record fr
+        LEFT JOIN borrow_record br ON fr.borrow_record_id = br.id
+        LEFT JOIN reader r ON fr.reader_id = r.id
+        LEFT JOIN book b ON br.book_id = b.id
+        <where>
+            <if test="status != null and status != ''">
+                fr.status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (r.name LIKE CONCAT('%', #{keyword}, '%') OR r.reader_no LIKE CONCAT('%', #{keyword}, '%') OR b.book_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY fr.status ASC, fr.create_time DESC
+    </select>
+
+    <insert id="generateOverdueFines">
+        INSERT INTO fine_record(borrow_record_id, reader_id, amount, status, create_time)
+        SELECT br.id,
+               br.reader_id,
+               DATEDIFF(CURDATE(), br.due_date) * 0.50,
+               'UNPAID',
+               NOW()
+        FROM borrow_record br
+        WHERE br.status = 'BORROWED'
+          AND br.due_date &lt; CURDATE()
+          AND NOT EXISTS (SELECT 1 FROM fine_record fr WHERE fr.borrow_record_id = br.id)
+    </insert>
+
+    <update id="markFinePaid">
+        UPDATE fine_record
+        SET status = 'PAID', pay_time = NOW(), update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateBorrowFinePaid">
+        UPDATE borrow_record SET fine_status = 'PAID', update_time = NOW() WHERE id = #{borrowRecordId}
+    </update>
+
+    <!-- 座位预约 -->
+    <select id="listFloors" resultType="map">
+        SELECT id AS id, floor_no AS floorNo, floor_name AS floorName, status AS status
+        FROM library_floor
+        WHERE status = 1
+        ORDER BY floor_no ASC
+    </select>
+
+    <select id="listSlots" resultType="map">
+        SELECT id AS id, start_time AS startTime, end_time AS endTime, status AS status
+        FROM seat_time_slot
+        WHERE status = 1
+        ORDER BY start_time ASC
+    </select>
+
+    <select id="listSeats" resultType="map">
+        SELECT s.id AS id,
+               s.floor_id AS floorId,
+               s.seat_no AS seatNo,
+               s.row_no AS rowNo,
+               s.col_no AS colNo,
+               CASE
+                   WHEN sr.id IS NOT NULL AND sr.reader_id = #{readerId} THEN 'MINE'
+                   WHEN sr.id IS NOT NULL THEN 'RESERVED'
+                   WHEN sl.id IS NOT NULL AND sl.reader_id = #{readerId} THEN 'LOCKED_MINE'
+                   WHEN sl.id IS NOT NULL THEN 'LOCKED'
+                   ELSE 'FREE'
+               END AS seatStatus,
+               sr.id AS reservationId
+        FROM library_seat s
+        LEFT JOIN seat_reservation sr ON sr.seat_id = s.id
+             AND sr.reservation_date = #{reservationDate}
+             AND sr.time_slot_id = #{timeSlotId}
+             AND sr.status = 1
+        LEFT JOIN seat_lock sl ON sl.seat_id = s.id
+             AND sl.reservation_date = #{reservationDate}
+             AND sl.time_slot_id = #{timeSlotId}
+             AND sl.status = 1
+             AND sl.expire_time &gt; NOW()
+        WHERE s.status = 1
+          AND (#{floorId} IS NULL OR s.floor_id = #{floorId})
+        ORDER BY s.floor_id ASC, s.row_no ASC, s.col_no ASC
+    </select>
+
+    <update id="clearExpiredLocks">
+        UPDATE seat_lock SET status = 0 WHERE status = 1 AND expire_time &lt;= NOW()
+    </update>
+
+    <select id="countSeatConflict" resultType="int">
+        SELECT
+            (SELECT COUNT(1) FROM seat_reservation
+             WHERE seat_id = #{seatId} AND reservation_date = #{reservationDate} AND time_slot_id = #{timeSlotId} AND status = 1)
+            +
+            (SELECT COUNT(1) FROM seat_lock
+             WHERE seat_id = #{seatId} AND reservation_date = #{reservationDate} AND time_slot_id = #{timeSlotId} AND status = 1 AND expire_time &gt; NOW())
+    </select>
+
+    <insert id="lockSeat">
+        INSERT INTO seat_lock(seat_id, reader_id, reservation_date, time_slot_id, expire_time, status, create_time)
+        VALUES(#{seatId}, #{readerId}, #{reservationDate}, #{timeSlotId}, #{expireTime}, 1, NOW())
+    </insert>
+
+    <insert id="createSeatReservation">
+        INSERT INTO seat_reservation(seat_id, reader_id, reservation_date, time_slot_id, status, create_time)
+        VALUES(#{seatId}, #{readerId}, #{reservationDate}, #{timeSlotId}, 1, NOW())
+    </insert>
+
+    <update id="cancelSeatReservation">
+        UPDATE seat_reservation SET status = 0, cancel_time = NOW(), update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="cancelOwnSeatReservation">
+        UPDATE seat_reservation SET status = 0, cancel_time = NOW(), update_time = NOW()
+        WHERE id = #{id} AND reader_id = #{readerId}
+    </update>
+
+    <select id="listSeatReservations" resultType="map">
+        SELECT sr.id AS id,
+               lf.floor_name AS floorName,
+               ls.seat_no AS seatNo,
+               r.reader_no AS readerNo,
+               r.name AS readerName,
+               sr.reservation_date AS reservationDate,
+               sts.start_time AS startTime,
+               sts.end_time AS endTime,
+               sr.status AS status,
+               sr.create_time AS createTime
+        FROM seat_reservation sr
+        LEFT JOIN library_seat ls ON sr.seat_id = ls.id
+        LEFT JOIN library_floor lf ON ls.floor_id = lf.id
+        LEFT JOIN seat_time_slot sts ON sr.time_slot_id = sts.id
+        LEFT JOIN reader r ON sr.reader_id = r.id
+        <where>
+            sr.status = 1
+            <if test="reservationDate != null and reservationDate != ''">AND sr.reservation_date = #{reservationDate}</if>
+            <if test="floorId != null">AND ls.floor_id = #{floorId}</if>
+            <if test="keyword != null and keyword != ''">
+                AND (r.name LIKE CONCAT('%', #{keyword}, '%') OR r.reader_no LIKE CONCAT('%', #{keyword}, '%') OR ls.seat_no LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY sr.reservation_date DESC, sts.start_time ASC, ls.seat_no ASC
+    </select>
+
+    <select id="listReaderSeatReservations" resultType="map">
+        SELECT sr.id AS id,
+               lf.floor_name AS floorName,
+               ls.seat_no AS seatNo,
+               sr.reservation_date AS reservationDate,
+               sts.start_time AS startTime,
+               sts.end_time AS endTime,
+               sr.status AS status
+        FROM seat_reservation sr
+        LEFT JOIN library_seat ls ON sr.seat_id = ls.id
+        LEFT JOIN library_floor lf ON ls.floor_id = lf.id
+        LEFT JOIN seat_time_slot sts ON sr.time_slot_id = sts.id
+        WHERE sr.reader_id = #{readerId}
+          AND sr.status = 1
+          AND CONCAT(sr.reservation_date, ' ', sts.end_time) &gt;= NOW()
+        ORDER BY sr.reservation_date ASC, sts.start_time ASC
+    </select>
+
+    <!-- 图书与借阅 -->
+    <select id="searchBooks" resultType="map">
+        SELECT b.id AS id,
+               b.book_no AS bookNo,
+               b.book_name AS bookName,
+               b.author AS author,
+               b.publisher AS publisher,
+               b.isbn AS isbn,
+               b.cover_image AS coverImage,
+               b.description AS description,
+               b.total_count AS totalCount,
+               b.available_count AS availableCount,
+               b.borrow_count AS borrowCount,
+               b.recommend_flag AS recommendFlag,
+               c.category_name AS categoryName
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        <where>
+            b.status = 1
+            <if test="keyword != null and keyword != ''">
+                AND (b.book_name LIKE CONCAT('%', #{keyword}, '%') OR b.book_no LIKE CONCAT('%', #{keyword}, '%') OR b.author LIKE CONCAT('%', #{keyword}, '%') OR b.publisher LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="categoryId != null">AND b.category_id = #{categoryId}</if>
+            <if test="onlyRecommend != null and onlyRecommend == 1">AND b.recommend_flag = 1</if>
+        </where>
+        ORDER BY b.recommend_flag DESC, b.borrow_count DESC, b.id DESC
+    </select>
+
+    <select id="findBookDetail" resultType="map">
+        SELECT b.id AS id,
+               b.book_no AS bookNo,
+               b.book_name AS bookName,
+               b.author AS author,
+               b.publisher AS publisher,
+               b.isbn AS isbn,
+               b.cover_image AS coverImage,
+               b.description AS description,
+               b.total_count AS totalCount,
+               b.available_count AS availableCount,
+               b.borrow_count AS borrowCount,
+               b.recommend_flag AS recommendFlag,
+               c.category_name AS categoryName
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        WHERE b.id = #{id}
+    </select>
+
+    <select id="listReaderBorrows" resultType="map">
+        SELECT br.id AS id,
+               b.book_name AS bookName,
+               b.book_no AS bookNo,
+               b.cover_image AS coverImage,
+               br.borrow_date AS borrowDate,
+               br.due_date AS dueDate,
+               br.return_date AS returnDate,
+               br.status AS status,
+               br.renew_count AS renewCount,
+               br.fine AS fine,
+               br.fine_status AS fineStatus,
+               CASE WHEN br.status = 'BORROWED' AND br.due_date &lt; CURDATE() THEN 1 ELSE 0 END AS overdueFlag
+        FROM borrow_record br
+        LEFT JOIN book b ON br.book_id = b.id
+        WHERE br.reader_id = #{readerId}
+        <choose>
+            <when test="history != null and history == 1">
+                AND br.status = 'RETURNED'
+            </when>
+            <otherwise>
+                AND br.status = 'BORROWED'
+            </otherwise>
+        </choose>
+        ORDER BY br.borrow_date DESC
+    </select>
+
+    <select id="listReaderBorrowHistory" resultType="map">
+        SELECT * FROM borrow_record WHERE reader_id = #{readerId} ORDER BY borrow_date DESC
+    </select>
+
+    <select id="findReaderProfile" resultType="map">
+        SELECT id AS id,
+               reader_no AS readerNo,
+               username AS username,
+               student_no AS studentNo,
+               name AS name,
+               gender AS gender,
+               college AS college,
+               major AS major,
+               class_name AS className,
+               department AS department,
+               phone AS phone,
+               email AS email,
+               avatar AS avatar,
+               create_time AS createTime
+        FROM reader
+        WHERE id = #{readerId}
+    </select>
+
+    <update id="updateReaderProfile">
+        UPDATE reader
+        SET phone = #{phone},
+            email = #{email},
+            avatar = CASE WHEN #{avatar} IS NULL OR #{avatar} = '' THEN avatar ELSE #{avatar} END,
+            update_time = NOW()
+        WHERE id = #{readerId}
+    </update>
+
+    <!-- 系统管理 -->
+    <select id="listAdmins" resultType="map">
+        SELECT id AS id,
+               username AS username,
+               real_name AS realName,
+               role AS role,
+               phone AS phone,
+               email AS email,
+               status AS status,
+               create_time AS createTime
+        FROM admin
+        <where>
+            <if test="keyword != null and keyword != ''">
+                username LIKE CONCAT('%', #{keyword}, '%') OR real_name LIKE CONCAT('%', #{keyword}, '%') OR role LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY status DESC, id DESC
+    </select>
+
+    <insert id="addAdmin">
+        INSERT INTO admin(username, password, real_name, role, phone, email, status, create_time)
+        VALUES(#{username}, #{password}, #{realName}, #{role}, #{phone}, #{email}, 1, NOW())
+    </insert>
+
+    <update id="disableAdmin">
+        UPDATE admin SET status = 0, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <select id="listOperationLogs" resultType="map">
+        SELECT id AS id,
+               operator_type AS operatorType,
+               operator_id AS operatorId,
+               operator_name AS operatorName,
+               module AS module,
+               operation AS operation,
+               request_url AS requestUrl,
+               ip AS ip,
+               create_time AS createTime
+        FROM operation_log
+        <where>
+            <if test="module != null and module != ''">module = #{module}</if>
+            <if test="keyword != null and keyword != ''">
+                AND (operator_name LIKE CONCAT('%', #{keyword}, '%') OR operation LIKE CONCAT('%', #{keyword}, '%') OR module LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT 200
+    </select>
+
+    <insert id="addOperationLog">
+        INSERT INTO operation_log(operator_type, operator_id, operator_name, module, operation, request_url, ip, create_time)
+        VALUES(#{operatorType}, #{operatorId}, #{operatorName}, #{module}, #{operation}, #{requestUrl}, #{ip}, NOW())
+    </insert>
+
+    <!-- 数据维护 -->
+    <select id="exportBooks" resultType="map">
+        SELECT b.book_no AS bookNo,
+               b.book_name AS bookName,
+               b.author AS author,
+               b.publisher AS publisher,
+               c.category_name AS categoryName,
+               b.total_count AS totalCount,
+               b.available_count AS availableCount,
+               b.status AS status
+        FROM book b LEFT JOIN book_category c ON b.category_id = c.id
+        ORDER BY b.id DESC
+    </select>
+
+    <select id="exportBorrows" resultType="map">
+        SELECT br.id AS id,
+               r.reader_no AS readerNo,
+               r.name AS readerName,
+               b.book_no AS bookNo,
+               b.book_name AS bookName,
+               br.borrow_date AS borrowDate,
+               br.due_date AS dueDate,
+               br.return_date AS returnDate,
+               br.status AS status,
+               br.fine AS fine
+        FROM borrow_record br
+        LEFT JOIN reader r ON br.reader_id = r.id
+        LEFT JOIN book b ON br.book_id = b.id
+        ORDER BY br.id DESC
+    </select>
+
+    <insert id="importBook">
+        INSERT INTO book(book_no, book_name, author, publisher, category_id, total_count, available_count, status, create_time)
+        VALUES(#{bookNo}, #{bookName}, #{author}, #{publisher}, #{categoryId}, #{totalCount}, #{availableCount}, 1, NOW())
+        ON DUPLICATE KEY UPDATE
+            book_name = VALUES(book_name),
+            author = VALUES(author),
+            publisher = VALUES(publisher),
+            category_id = VALUES(category_id),
+            total_count = VALUES(total_count),
+            available_count = VALUES(available_count),
+            update_time = NOW()
+    </insert>
+
+</mapper>
