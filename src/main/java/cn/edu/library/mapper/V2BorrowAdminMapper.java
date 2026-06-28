@@ -9,13 +9,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 【本次新增】v2 借阅办理 Mapper。
+ * 【本次修改】v2 借阅办理 Mapper。
  *
- * 设计目标：
- * 1. 读者端只查询图书状态，不直接借书。
- * 2. 普通管理员通过“读者编号/学号 + 图书实体编码”办理借书。
- * 3. 普通管理员通过“图书实体编码”办理还书。
- * 4. 还书后图书进入 RETURN_PROCESSING（上架中），两天后自动上架，管理员也可手动确认上架。
+ * 读者端只查询图书状态；普通管理员按实体书编码办理借书、还书、确认上架。
  */
 public interface V2BorrowAdminMapper {
 
@@ -84,11 +80,11 @@ public interface V2BorrowAdminMapper {
             "WHERE id = #{borrowId} AND status = 'BORROWED'")
     int markBorrowReturned(@Param("borrowId") Integer borrowId, @Param("adminId") Integer adminId);
 
-    @Insert("INSERT INTO fine_record(borrow_record_id, reader_id, amount, status, create_time) " +
-            "SELECT br.id, br.reader_id, DATEDIFF(CURDATE(), br.due_date) * 0.50, 'UNPAID', NOW() " +
+    @Insert("INSERT INTO fine_record(borrow_record_id, borrow_id, reader_id, amount, status, create_time) " +
+            "SELECT br.id, br.id, br.reader_id, DATEDIFF(CURDATE(), br.due_date) * 0.50, 'UNPAID', NOW() " +
             "FROM borrow_record br " +
             "WHERE br.id = #{borrowId} AND br.due_date < CURDATE() " +
-            "AND NOT EXISTS (SELECT 1 FROM fine_record fr WHERE fr.borrow_record_id = br.id)")
+            "AND NOT EXISTS (SELECT 1 FROM fine_record fr WHERE fr.borrow_record_id = br.id OR fr.borrow_id = br.id)")
     int generateFineIfOverdue(@Param("borrowId") Integer borrowId);
 
     @Update("UPDATE book_copy SET shelf_status = 'RETURN_PROCESSING', current_borrow_id = NULL, " +
@@ -115,6 +111,11 @@ public interface V2BorrowAdminMapper {
             "return_process_start_time = NULL, available_at = NULL, update_time = NOW() " +
             "WHERE id = #{copyId} AND shelf_status = 'RETURN_PROCESSING'")
     int markCopyOnShelf(@Param("copyId") Integer copyId);
+
+    @Update("UPDATE borrow_record SET shelf_admin_id = #{adminId}, shelf_time = NOW(), update_time = NOW() " +
+            "WHERE copy_id = #{copyId} AND status IN ('RETURNED', 'OVERDUE_RETURNED') " +
+            "ORDER BY id DESC LIMIT 1")
+    int markBorrowShelfConfirmed(@Param("copyId") Integer copyId, @Param("adminId") Integer adminId);
 
     @Update("UPDATE book SET available_count = LEAST(IFNULL(total_count, 0), IFNULL(available_count, 0) + 1), update_time = NOW() WHERE id = #{bookId}")
     int increaseBookAvailable(@Param("bookId") Integer bookId);

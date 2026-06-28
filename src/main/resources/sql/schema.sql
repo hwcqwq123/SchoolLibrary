@@ -860,6 +860,89 @@ DELIMITER ;
 -- 初始化数据
 -- =========================================================
 
+-- =========================================================
+-- 【本次新增】实体书副本自动维护触发器
+-- 说明：
+-- 1. 新增图书时，按 total_count 自动生成 book_copy。
+-- 2. 增加 total_count 时，自动补齐新增实体书编码。
+-- 3. 减少 total_count 时，不删除历史实体书，只把超出的已上架实体书标记为 OFF_SHELF。
+-- =========================================================
+DROP TRIGGER IF EXISTS trg_book_after_insert_copy;
+DROP TRIGGER IF EXISTS trg_book_after_update_copy;
+
+DELIMITER $$
+
+CREATE TRIGGER trg_book_after_insert_copy
+AFTER INSERT ON book
+FOR EACH ROW
+BEGIN
+    INSERT INTO book_copy(book_id, copy_no, shelf_status, location, status, shelf_time, create_time)
+    SELECT
+        NEW.id,
+        CONCAT(NEW.book_no, '-', LPAD(seq.n, 3, '0')),
+        'ON_SHELF',
+        NEW.location,
+        1,
+        NOW(),
+        NOW()
+    FROM (
+        SELECT ones.n + tens.n * 10 + hundreds.n * 100 + 1 AS n
+        FROM
+            (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+             UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) ones
+        CROSS JOIN
+            (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+             UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) tens
+        CROSS JOIN
+            (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+             UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) hundreds
+    ) seq
+    WHERE seq.n <= IFNULL(NEW.total_count, 0)
+    ON DUPLICATE KEY UPDATE update_time = NOW();
+END$$
+
+CREATE TRIGGER trg_book_after_update_copy
+AFTER UPDATE ON book
+FOR EACH ROW
+BEGIN
+    IF IFNULL(NEW.total_count, 0) > IFNULL(OLD.total_count, 0) THEN
+        INSERT INTO book_copy(book_id, copy_no, shelf_status, location, status, shelf_time, create_time)
+        SELECT
+            NEW.id,
+            CONCAT(NEW.book_no, '-', LPAD(seq.n, 3, '0')),
+            'ON_SHELF',
+            NEW.location,
+            1,
+            NOW(),
+            NOW()
+        FROM (
+            SELECT ones.n + tens.n * 10 + hundreds.n * 100 + 1 AS n
+            FROM
+                (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) ones
+            CROSS JOIN
+                (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) tens
+            CROSS JOIN
+                (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) hundreds
+        ) seq
+        WHERE seq.n > IFNULL(OLD.total_count, 0)
+          AND seq.n <= IFNULL(NEW.total_count, 0)
+        ON DUPLICATE KEY UPDATE update_time = NOW();
+    END IF;
+
+    IF IFNULL(NEW.total_count, 0) < IFNULL(OLD.total_count, 0) THEN
+        UPDATE book_copy
+        SET shelf_status = 'OFF_SHELF', update_time = NOW()
+        WHERE book_id = NEW.id
+          AND shelf_status = 'ON_SHELF'
+          AND CAST(SUBSTRING_INDEX(copy_no, '-', -1) AS UNSIGNED) > IFNULL(NEW.total_count, 0);
+    END IF;
+END$$
+
+DELIMITER ;
+
 INSERT INTO admin(id, username, password, real_name, role, phone, email, status)
 VALUES
 (1, 'admin', 'e10adc3949ba59abbe56e057f20f883e', '超级管理员', 'SUPER_ADMIN', '13800000000', 'admin@example.com', 1),
@@ -914,40 +997,27 @@ VALUES
  '管理类', 4, 7, 7, 'C-01',
  NULL, '本书介绍管理学基础理论、组织管理、计划控制等内容。', 0, 0, 1);
 
--- =========================================================
--- 【本次新增】初始化实体书副本数据
--- 说明：
--- 1. 每一类图书按 total_count 自动生成实体书编码，例如 B2026001-001。
--- 2. 读者端只查询图书状态；普通管理员按 copy_no 办理借书、还书。
--- 3. 初始化示例借阅记录对应的实体书会被标记为 BORROWED。
--- =========================================================
-INSERT INTO book_copy(
-    book_id, copy_no, shelf_status, location, status, shelf_time, create_time
+INSERT INTO borrow_record(
+    id, reader_id, book_id,
+    borrow_time, due_time, return_time,
+    borrow_date, due_date, return_date,
+    status, renew_count, overdue_days, fine, fine_status
 )
-SELECT
-    b.id AS book_id,
-    CONCAT(b.book_no, '-', LPAD(seq.n, 3, '0')) AS copy_no,
-    'ON_SHELF' AS shelf_status,
-    b.location AS location,
-    1 AS status,
-    NOW() AS shelf_time,
-    NOW() AS create_time
-FROM book b
-JOIN (
-    SELECT ones.n + tens.n * 10 + hundreds.n * 100 + 1 AS n
-    FROM
-        (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) ones
-    CROSS JOIN
-        (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) tens
-    CROSS JOIN
-        (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) hundreds
-) seq ON seq.n <= IFNULL(b.total_count, 0)
-WHERE b.status = 1;
+VALUES
+(1, 1, 1,
+ DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 25 DAY), NULL,
+ DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 25 DAY), NULL,
+ 'BORROWED', 0, 0, 0.00, 'NONE'),
 
--- 将初始化借阅记录绑定到具体实体书。
+(2, 1, 2,
+ DATE_SUB(NOW(), INTERVAL 40 DAY), DATE_SUB(NOW(), INTERVAL 10 DAY), NULL,
+ DATE_SUB(NOW(), INTERVAL 40 DAY), DATE_SUB(NOW(), INTERVAL 10 DAY), NULL,
+ 'BORROWED', 0, 10, 5.00, 'UNPAID');
+
+-- =========================================================
+-- 【本次修复】绑定初始化借阅记录与实体书副本
+-- 说明：必须在 borrow_record 初始化完成后执行。
+-- =========================================================
 UPDATE borrow_record br
 JOIN book_copy bc ON bc.copy_no = 'B2026001-001'
 SET br.copy_id = bc.id,
@@ -962,7 +1032,6 @@ SET br.copy_id = bc.id,
     br.borrow_admin_id = 2
 WHERE br.id = 2;
 
--- 初始化借阅中的实体书状态。
 UPDATE book_copy bc
 JOIN borrow_record br ON br.copy_id = bc.id
 SET bc.shelf_status = 'BORROWED',
@@ -972,7 +1041,6 @@ WHERE br.status = 'BORROWED'
   AND br.return_date IS NULL
   AND br.return_time IS NULL;
 
--- 用实体书状态回写 book 数量。
 UPDATE book b
 SET b.total_count = (
         SELECT COUNT(1)
@@ -991,23 +1059,6 @@ SET b.total_count = (
 WHERE EXISTS (
     SELECT 1 FROM book_copy bc WHERE bc.book_id = b.id
 );
-
-INSERT INTO borrow_record(
-    id, reader_id, book_id,
-    borrow_time, due_time, return_time,
-    borrow_date, due_date, return_date,
-    status, renew_count, overdue_days, fine, fine_status
-)
-VALUES
-(1, 1, 1,
- DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 25 DAY), NULL,
- DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 25 DAY), NULL,
- 'BORROWED', 0, 0, 0.00, 'NONE'),
-
-(2, 1, 2,
- DATE_SUB(NOW(), INTERVAL 40 DAY), DATE_SUB(NOW(), INTERVAL 10 DAY), NULL,
- DATE_SUB(NOW(), INTERVAL 40 DAY), DATE_SUB(NOW(), INTERVAL 10 DAY), NULL,
- 'BORROWED', 0, 10, 5.00, 'UNPAID');
 
 INSERT INTO fine_record(
     id, borrow_id, borrow_record_id, reader_id, book_id,

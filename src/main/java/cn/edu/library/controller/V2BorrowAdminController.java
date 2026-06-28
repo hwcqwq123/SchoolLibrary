@@ -16,25 +16,25 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 /**
- * 【本次新增】v2 借阅业务办理控制器。
+ * 【本次新增】v2 借阅办理动作控制器。
  */
 @Controller
 @RequestMapping("/admin/v2/borrows")
-public class V2BorrowBusinessController {
+public class V2BorrowAdminController {
 
     @Resource
     private V2BorrowBusinessService borrowBusinessService;
 
     @PostMapping("/borrow")
-    public String borrow(@RequestParam String readerKey,
-                         @RequestParam String copyNo,
+    public String borrow(@RequestParam(required = false) String readerKey,
+                         @RequestParam(required = false) String copyNo,
                          @RequestParam(required = false) Integer borrowDays,
-                         HttpSession session,
                          HttpServletRequest request,
+                         HttpSession session,
                          RedirectAttributes redirectAttributes) {
         if (!V2AdminRoleUtil.isNormalAdmin(session)) {
             redirectAttributes.addAttribute("error", V2AdminRoleUtil.denyForSuperAdmin());
-            return "redirect:/admin/v2/borrows";
+            return "redirect:/admin/v2/admins";
         }
         Admin admin = V2AdminRoleUtil.currentAdmin(session);
         V2ActionResult result = borrowBusinessService.borrowByCopyNo(readerKey, copyNo, borrowDays, admin, request);
@@ -43,13 +43,13 @@ public class V2BorrowBusinessController {
     }
 
     @PostMapping("/return")
-    public String returnBook(@RequestParam String copyNo,
-                             HttpSession session,
+    public String returnBook(@RequestParam(required = false) String copyNo,
                              HttpServletRequest request,
+                             HttpSession session,
                              RedirectAttributes redirectAttributes) {
         if (!V2AdminRoleUtil.isNormalAdmin(session)) {
             redirectAttributes.addAttribute("error", V2AdminRoleUtil.denyForSuperAdmin());
-            return "redirect:/admin/v2/borrows";
+            return "redirect:/admin/v2/admins";
         }
         Admin admin = V2AdminRoleUtil.currentAdmin(session);
         V2ActionResult result = borrowBusinessService.returnByCopyNo(copyNo, admin, request);
@@ -59,12 +59,12 @@ public class V2BorrowBusinessController {
 
     @PostMapping("/shelf/{copyId}")
     public String confirmShelf(@PathVariable Integer copyId,
-                               HttpSession session,
                                HttpServletRequest request,
+                               HttpSession session,
                                RedirectAttributes redirectAttributes) {
         if (!V2AdminRoleUtil.isNormalAdmin(session)) {
             redirectAttributes.addAttribute("error", V2AdminRoleUtil.denyForSuperAdmin());
-            return "redirect:/admin/v2/borrows";
+            return "redirect:/admin/v2/admins";
         }
         Admin admin = V2AdminRoleUtil.currentAdmin(session);
         V2ActionResult result = borrowBusinessService.confirmShelf(copyId, admin, request);
@@ -74,7 +74,7 @@ public class V2BorrowBusinessController {
 
     private void addRedirectMessage(RedirectAttributes redirectAttributes, V2ActionResult result) {
         if (result == null) {
-            redirectAttributes.addAttribute("error", "操作失败，请稍后重试。 ");
+            redirectAttributes.addAttribute("error", "操作失败，请稍后重试。");
             return;
         }
         if (result.isSuccess()) {

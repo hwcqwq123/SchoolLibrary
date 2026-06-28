@@ -82,25 +82,17 @@ public class LoginController {
 
     private Admin tryAdminLogin(String username, String rawPassword, String md5Lower, String md5Upper) {
         Admin admin = adminService.login(username, rawPassword);
-        if (admin != null) {
-            return admin;
-        }
+        if (admin != null) return admin;
         admin = adminService.login(username, md5Lower);
-        if (admin != null) {
-            return admin;
-        }
+        if (admin != null) return admin;
         return adminService.login(username, md5Upper);
     }
 
     private Reader tryReaderLogin(String username, String rawPassword, String md5Lower, String md5Upper) {
         Reader reader = readerService.login(username, rawPassword);
-        if (reader != null) {
-            return reader;
-        }
+        if (reader != null) return reader;
         reader = readerService.login(username, md5Lower);
-        if (reader != null) {
-            return reader;
-        }
+        if (reader != null) return reader;
         return readerService.login(username, md5Upper);
     }
 
