@@ -32,10 +32,10 @@ import java.util.Map;
  * 管理员端 v2 控制器。
  *
  * 【本次修改】
- * 1. 关键多步骤业务改由 V2BusinessService 处理，并加事务。
- * 2. 所有写操作增加后端参数校验。
- * 3. 操作结果通过 success / error 参数反馈到页面。
- * 4. 分类、公告、续借、罚款、座位、系统管理等操作统一写操作日志。
+ * 1. 保留普通管理员业务接口。
+ * 2. 旧系统管理员新增/禁用入口封存，统一跳转到 /admin/v2/admins。
+ * 3. 导入图书时忽略 CSV 的 available_count，强制 available_count = total_count，
+ *    避免 book_copy 全部 ON_SHELF 但 book.available_count 却较小的数据不一致。
  */
 @Controller
 @RequestMapping("/admin/v2")
@@ -170,13 +170,9 @@ public class V2AdminController {
                                @RequestParam(required = false) String remark,
                                HttpServletRequest request,
                                RedirectAttributes ra) {
-        V2ActionResult result = v2BusinessService.approveRenew(id,
-                borrowRecordId,
-                remark,
-                currentUserId(request.getSession()),
-                currentUserName(request.getSession()),
-                request.getRequestURI(),
-                request.getRemoteAddr());
+        V2ActionResult result = v2BusinessService.approveRenew(id, borrowRecordId, remark,
+                currentUserId(request.getSession()), currentUserName(request.getSession()),
+                request.getRequestURI(), request.getRemoteAddr());
         return redirect("redirect:/admin/v2/renews", result, ra);
     }
 
@@ -185,12 +181,9 @@ public class V2AdminController {
                               @RequestParam(required = false) String remark,
                               HttpServletRequest request,
                               RedirectAttributes ra) {
-        V2ActionResult result = v2BusinessService.rejectRenew(id,
-                remark,
-                currentUserId(request.getSession()),
-                currentUserName(request.getSession()),
-                request.getRequestURI(),
-                request.getRemoteAddr());
+        V2ActionResult result = v2BusinessService.rejectRenew(id, remark,
+                currentUserId(request.getSession()), currentUserName(request.getSession()),
+                request.getRequestURI(), request.getRemoteAddr());
         return redirect("redirect:/admin/v2/renews", result, ra);
     }
 
@@ -206,10 +199,9 @@ public class V2AdminController {
 
     @GetMapping("/fines/generate")
     public String generateFines(HttpServletRequest request, RedirectAttributes ra) {
-        V2ActionResult result = v2BusinessService.generateOverdueFines(currentUserId(request.getSession()),
-                currentUserName(request.getSession()),
-                request.getRequestURI(),
-                request.getRemoteAddr());
+        V2ActionResult result = v2BusinessService.generateOverdueFines(
+                currentUserId(request.getSession()), currentUserName(request.getSession()),
+                request.getRequestURI(), request.getRemoteAddr());
         return redirect("redirect:/admin/v2/fines", result, ra);
     }
 
@@ -218,12 +210,9 @@ public class V2AdminController {
                           @PathVariable Integer borrowRecordId,
                           HttpServletRequest request,
                           RedirectAttributes ra) {
-        V2ActionResult result = v2BusinessService.payFine(id,
-                borrowRecordId,
-                currentUserId(request.getSession()),
-                currentUserName(request.getSession()),
-                request.getRequestURI(),
-                request.getRemoteAddr());
+        V2ActionResult result = v2BusinessService.payFine(id, borrowRecordId,
+                currentUserId(request.getSession()), currentUserName(request.getSession()),
+                request.getRequestURI(), request.getRemoteAddr());
         return redirect("redirect:/admin/v2/fines", result, ra);
     }
 
@@ -247,10 +236,8 @@ public class V2AdminController {
     @GetMapping("/seats/cancel/{id}")
     public String cancelSeat(@PathVariable Integer id, HttpServletRequest request, RedirectAttributes ra) {
         V2ActionResult result = v2BusinessService.cancelSeatReservationByAdmin(id,
-                currentUserId(request.getSession()),
-                currentUserName(request.getSession()),
-                request.getRequestURI(),
-                request.getRemoteAddr());
+                currentUserId(request.getSession()), currentUserName(request.getSession()),
+                request.getRequestURI(), request.getRemoteAddr());
         return redirect("redirect:/admin/v2/seats", result, ra);
     }
 
@@ -288,73 +275,83 @@ public class V2AdminController {
                     continue;
                 }
             }
+
             String[] arr = line.split(",");
             if (arr.length < 4) {
                 continue;
             }
+
             String bookNo = arr[0].trim();
             String bookName = arr[1].trim();
             String author = arr.length > 2 ? arr[2].trim() : "";
             String publisher = arr.length > 3 ? arr[3].trim() : "";
             Integer categoryId = parseInt(arr.length > 4 ? arr[4].trim() : null, 1);
             Integer total = parseInt(arr.length > 5 ? arr[5].trim() : null, 1);
-            Integer available = parseInt(arr.length > 6 ? arr[6].trim() : null, total);
+            if (total == null || total < 0) {
+                total = 0;
+            }
+            if (total > 999) {
+                return redirect("redirect:/admin/v2/data",
+                        V2ActionResult.error("IMPORT_LIMIT", "单种图书库存不能超过 999，本次导入已中止。"), ra);
+            }
+
+            /*
+             * 【本次修改】
+             * 实体书副本由 book_copy 维护。导入时不再信任 CSV 的 available_count，
+             * 强制 available_count = total_count，避免触发器生成 total 本 ON_SHELF，
+             * 但 book.available_count 却是 CSV 中较小值的数据不一致。
+             */
+            Integer available = total;
+
             if (!bookNo.isEmpty() && !bookName.isEmpty()) {
                 v2Mapper.importBook(bookNo, bookName, author, publisher, categoryId, total, available);
                 imported++;
             }
         }
+
         log(request, "数据维护", "导入图书CSV，成功记录数：" + imported);
         return redirect("redirect:/admin/v2/data", V2ActionResult.success("导入完成，成功处理 " + imported + " 条图书记录"), ra);
     }
 
     @GetMapping("/system")
-    public String system(@RequestParam(required = false) String keyword,
-                         @RequestParam(required = false) String module,
-                         Model model) {
-        model.addAttribute("admins", v2Mapper.listAdmins(keyword));
-        model.addAttribute("logs", v2Mapper.listOperationLogs(keyword, module));
-        model.addAttribute("keyword", keyword);
-        model.addAttribute("module", module);
-        return "admin/v2-system";
+    public String system() {
+        /*
+         * 【本次修改】
+         * 系统页保留为超级管理员入口，但管理员账号管理已经统一交给 V2AdminAccountController。
+         */
+        return "redirect:/admin/v2/admins";
     }
 
     @PostMapping("/system/admins/add")
-    public String addAdmin(@RequestParam(required = false) String username,
-                           @RequestParam(required = false) String password,
-                           @RequestParam(required = false) String realName,
-                           @RequestParam(defaultValue = "ADMIN") String role,
-                           @RequestParam(required = false) String phone,
-                           @RequestParam(required = false) String email,
-                           HttpServletRequest request,
-                           RedirectAttributes ra) {
-        if (isBlank(username) || isBlank(password) || isBlank(realName)) {
-            return redirect("redirect:/admin/v2/system", V2ActionResult.error("INVALID_ADMIN", "用户名、密码和姓名不能为空"), ra);
-        }
-        if (password.length() < 6) {
-            return redirect("redirect:/admin/v2/system", V2ActionResult.error("WEAK_PASSWORD", "管理员密码至少 6 位"), ra);
-        }
-        v2Mapper.addAdmin(username.trim(), Md5Util.md5(password.trim()), realName.trim(), emptyTo(role, "ADMIN"), trim(phone), trim(email));
-        log(request, "系统管理", "新增管理员：" + username.trim());
-        return redirect("redirect:/admin/v2/system", V2ActionResult.success("管理员新增成功"), ra);
+    public String addAdmin(HttpServletRequest request, RedirectAttributes ra) {
+        /*
+         * 【本次修改】旧管理员新增入口封存。
+         * 超级管理员新增普通管理员统一使用 /admin/v2/admins。
+         */
+        log(request, "系统管理", "拦截旧管理员新增入口");
+        return redirect("redirect:/admin/v2/admins",
+                V2ActionResult.error("旧入口已封存，请在“管理员管理”页面新增普通管理员。"), ra);
     }
 
     @GetMapping("/system/admins/disable/{id}")
     public String disableAdmin(@PathVariable Integer id, HttpServletRequest request, RedirectAttributes ra) {
-        if (id == null || id <= 0) {
-            return redirect("redirect:/admin/v2/system", V2ActionResult.error("INVALID_ADMIN", "管理员 ID 无效"), ra);
-        }
-        v2Mapper.disableAdmin(id);
-        log(request, "系统管理", "禁用管理员ID：" + id);
-        return redirect("redirect:/admin/v2/system", V2ActionResult.success("管理员已禁用"), ra);
+        /*
+         * 【本次修改】旧管理员禁用入口封存。
+         * 超级管理员禁用普通管理员统一使用 /admin/v2/admins。
+         */
+        log(request, "系统管理", "拦截旧管理员禁用入口：" + id);
+        return redirect("redirect:/admin/v2/admins",
+                V2ActionResult.error("旧入口已封存，请在“管理员管理”页面启用或禁用普通管理员。"), ra);
     }
 
     private void writeCsv(HttpServletResponse response, String filename, List<Map<String, Object>> rows) throws Exception {
         response.setCharacterEncoding("UTF-8");
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=" + URLEncoder.encode(filename, "UTF-8"));
+
         PrintWriter writer = new PrintWriter(new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8));
         writer.write('\ufeff');
+
         if (rows != null && !rows.isEmpty()) {
             boolean headerWritten = false;
             for (Map<String, Object> row : rows) {
@@ -373,6 +370,7 @@ public class V2AdminController {
                 writer.println();
             }
         }
+
         writer.flush();
     }
 
@@ -447,9 +445,5 @@ public class V2AdminController {
 
     private String trim(String value) {
         return value == null ? null : value.trim();
-    }
-
-    private String emptyTo(String value, String fallback) {
-        return isBlank(value) ? fallback : value.trim();
     }
 }

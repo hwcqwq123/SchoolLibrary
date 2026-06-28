@@ -5,21 +5,30 @@ import cn.edu.library.mapper.ReaderMapper;
 import cn.edu.library.service.ReaderService;
 import cn.edu.library.util.Md5Util;
 import org.springframework.stereotype.Service;
+
 import javax.annotation.Resource;
 import java.util.List;
 
+/**
+ * 【本次修改】读者服务。
+ *
+ * 修复点：
+ * 1. 登录统一走 ReaderMapper.login，SQL 中已限制 status = 1。
+ * 2. 支持 username / reader_no / student_no 登录。
+ * 3. 避免禁用读者仍可通过 findByReaderNo + 手动密码比对登录。
+ */
 @Service
 public class ReaderServiceImpl implements ReaderService {
+
     @Resource
     private ReaderMapper readerMapper;
 
     @Override
-    public Reader login(String readerNo, String password) {
-        Reader reader = readerMapper.findByReaderNo(readerNo);
-        if (reader == null) {
+    public Reader login(String username, String password) {
+        if (isBlank(username) || password == null) {
             return null;
         }
-        return reader.getPassword().equals(Md5Util.md5(password)) ? reader : null;
+        return readerMapper.login(username.trim(), password);
     }
 
     @Override
@@ -34,7 +43,6 @@ public class ReaderServiceImpl implements ReaderService {
 
     @Override
     public void save(Reader reader) {
-        // 新增读者时，默认账号为 readerNo，默认密码为 123456。
         reader.setUsername(reader.getReaderNo());
         reader.setPassword(Md5Util.md5("123456"));
         readerMapper.insert(reader);
@@ -57,5 +65,9 @@ public class ReaderServiceImpl implements ReaderService {
             return false;
         }
         return readerMapper.updatePassword(readerId, Md5Util.md5(newPassword)) > 0;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

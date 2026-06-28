@@ -1,5 +1,27 @@
 -- =========================================================
 -- SchoolLibrary v2 完整数据库脚本
+-- 文件名：schema-v2-full-with-v2-004.sql
+--
+-- 【本次合并】
+-- 1. schema.sql
+-- 2. V2_004_fix_remaining_logic.sql
+--
+-- 【执行方式】
+-- mysql -u root -p
+-- source E:/SchoolLibrary/src/main/resources/sql/schema.sql;
+--
+-- 【注意】
+-- 该文件是完整初始化 + V2_004 逻辑修复整合版。
+-- 如果 schema.sql 中包含 DROP DATABASE / DROP TABLE / 初始化数据，
+-- 执行本文件会重建或覆盖开发库数据，执行前请确认没有需要保留的数据。
+-- =========================================================
+
+-- =========================================================
+-- Part 1：基础完整数据库 schema.sql
+-- =========================================================
+
+-- =========================================================
+-- SchoolLibrary v2 完整数据库脚本
 -- 文件名：schema.sql
 --
 -- 【本次合并】
@@ -1302,6 +1324,140 @@ SHOW COLUMNS FROM borrow_record LIKE 'copy_id';
 SELECT COUNT(*) AS book_copy_count FROM book_copy;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- =========================================================
+-- SchoolLibrary v2 完整数据库脚本执行结束
+-- =========================================================
+
+-- =========================================================
+-- Part 2：V2_004 剩余逻辑修复
+-- 来源：V2_004_fix_remaining_logic.sql
+-- =========================================================
+
+-- =========================================================
+-- V2_004_fix_remaining_logic.sql
+-- 【本次新增】剩余 13 个逻辑问题的数据库侧修复
+--
+-- 执行方式：
+-- mysql -u root -p
+-- source E:/SchoolLibrary/src/main/resources/sql/migration/V2_004_fix_remaining_logic.sql;
+-- =========================================================
+
+USE school_library;
+
+-- 1. 保证 admin 是唯一超级管理员，其他 SUPER_ADMIN 纠正为 ADMIN。
+UPDATE admin
+SET role = 'ADMIN', update_time = NOW()
+WHERE role = 'SUPER_ADMIN'
+  AND username <> 'admin';
+
+-- 2. 如果 admin 不存在，则补一个超级管理员。
+INSERT INTO admin(username, password, real_name, role, phone, email, status, create_time)
+SELECT 'admin', MD5('123456'), '超级管理员', 'SUPER_ADMIN', NULL, NULL, 1, NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM admin WHERE username = 'admin'
+);
+
+-- 3. 强制 admin 为 SUPER_ADMIN 且启用。
+UPDATE admin
+SET role = 'SUPER_ADMIN',
+    status = 1,
+    update_time = NOW()
+WHERE username = 'admin';
+
+-- 4. 清理旧触发器。
+DROP TRIGGER IF EXISTS tr_admin_unique_super_bi;
+DROP TRIGGER IF EXISTS tr_admin_unique_super_bu;
+
+DELIMITER $$
+
+-- 5. 插入管理员时，数据库层面阻止第二个超级管理员。
+CREATE TRIGGER tr_admin_unique_super_bi
+BEFORE INSERT ON admin
+FOR EACH ROW
+BEGIN
+    IF NEW.role = 'SUPER_ADMIN' AND NEW.username <> 'admin' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'SUPER_ADMIN 账号固定唯一为 admin，不能新增其他超级管理员';
+    END IF;
+
+    IF NEW.role = 'SUPER_ADMIN'
+       AND EXISTS (SELECT 1 FROM admin WHERE role = 'SUPER_ADMIN') THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '系统中已经存在超级管理员 admin，不能新增第二个超级管理员';
+    END IF;
+
+    IF NEW.username = 'admin' THEN
+        SET NEW.role = 'SUPER_ADMIN';
+        SET NEW.status = 1;
+    END IF;
+END$$
+
+-- 6. 更新管理员时，数据库层面阻止破坏 admin 唯一超级管理员规则。
+CREATE TRIGGER tr_admin_unique_super_bu
+BEFORE UPDATE ON admin
+FOR EACH ROW
+BEGIN
+    IF OLD.username = 'admin' AND NEW.username <> 'admin' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '超级管理员账号 admin 不允许改名';
+    END IF;
+
+    IF OLD.username = 'admin' AND NEW.role <> 'SUPER_ADMIN' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'admin 必须保持 SUPER_ADMIN 角色';
+    END IF;
+
+    IF OLD.username = 'admin' AND NEW.status <> 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '超级管理员 admin 不允许禁用';
+    END IF;
+
+    IF NEW.role = 'SUPER_ADMIN' AND NEW.username <> 'admin' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'SUPER_ADMIN 账号固定唯一为 admin，不能把普通管理员改为超级管理员';
+    END IF;
+
+    IF NEW.role = 'SUPER_ADMIN'
+       AND EXISTS (
+           SELECT 1
+           FROM admin
+           WHERE role = 'SUPER_ADMIN'
+             AND id <> OLD.id
+       ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '系统中已经存在超级管理员 admin，不能出现第二个超级管理员';
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- 7. 修复历史导入可能造成的 book.available_count 与 book_copy 状态不一致。
+UPDATE book b
+SET b.total_count = (
+        SELECT COUNT(1)
+        FROM book_copy bc
+        WHERE bc.book_id = b.id
+          AND bc.status = 1
+    ),
+    b.available_count = (
+        SELECT COUNT(1)
+        FROM book_copy bc
+        WHERE bc.book_id = b.id
+          AND bc.status = 1
+          AND bc.shelf_status = 'ON_SHELF'
+    ),
+    b.update_time = NOW()
+WHERE EXISTS (
+    SELECT 1
+    FROM book_copy bc
+    WHERE bc.book_id = b.id
+);
+
+-- 8. 检查结果。
+SELECT username, role, status FROM admin WHERE username = 'admin';
+SELECT COUNT(*) AS super_admin_count FROM admin WHERE role = 'SUPER_ADMIN';
+SELECT COUNT(*) AS book_copy_count FROM book_copy;
 
 -- =========================================================
 -- SchoolLibrary v2 完整数据库脚本执行结束

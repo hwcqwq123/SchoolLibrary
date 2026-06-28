@@ -16,7 +16,9 @@ import javax.servlet.http.HttpSession;
 public class LoginInterceptor implements HandlerInterceptor {
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    public boolean preHandle(HttpServletRequest request,
+                             HttpServletResponse response,
+                             Object handler) throws Exception {
         String uri = request.getRequestURI();
         String contextPath = request.getContextPath();
         String path = uri.substring(contextPath.length());
@@ -34,6 +36,7 @@ public class LoginInterceptor implements HandlerInterceptor {
         Object user = session.getAttribute("loginUser");
         String userType = stringValue(session.getAttribute("userType"));
         String loginRole = stringValue(session.getAttribute("loginRole"));
+
         if (userType.length() == 0) {
             userType = loginRole;
         }
@@ -68,7 +71,8 @@ public class LoginInterceptor implements HandlerInterceptor {
 
         if (isSuperAdminOnlyPath(path)) {
             if (!"SUPER_ADMIN".equals(adminRole)) {
-                response.sendRedirect(contextPath + "/admin/v2/dashboard?error=" + encode("当前账号为普通管理员，无权访问超级管理员功能。"));
+                response.sendRedirect(contextPath + "/admin/v2/dashboard?error="
+                        + encode("当前账号为普通管理员，无权访问超级管理员功能。"));
                 return false;
             }
             return true;
@@ -76,7 +80,8 @@ public class LoginInterceptor implements HandlerInterceptor {
 
         if (isNormalAdminOnlyPath(path)) {
             if ("SUPER_ADMIN".equals(adminRole)) {
-                response.sendRedirect(contextPath + "/admin/v2/admins?error=" + encode("超级管理员不参与读者、图书和借阅等日常业务，请使用普通管理员账号办理。"));
+                response.sendRedirect(contextPath + "/admin/v2/admins?error="
+                        + encode("超级管理员不参与读者、图书和借阅等日常业务，请使用普通管理员账号办理。"));
                 return false;
             }
             if (!"ADMIN".equals(adminRole)) {
@@ -112,7 +117,8 @@ public class LoginInterceptor implements HandlerInterceptor {
     }
 
     private boolean isNormalAdminOnlyPath(String path) {
-        return path.startsWith("/admin/v2/books")
+        return path.startsWith("/admin/v2/dashboard")
+                || path.startsWith("/admin/v2/books")
                 || path.startsWith("/admin/v2/categories")
                 || path.startsWith("/admin/v2/readers")
                 || path.startsWith("/admin/v2/borrows")
