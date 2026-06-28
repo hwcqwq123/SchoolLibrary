@@ -53,9 +53,9 @@ public class RouteCompatController {
         return "redirect:/admin/v2/data";
     }
 
-    @GetMapping({"/admin/system", "/admin/admins", "/admin/logs", "/admin/v2/admins", "/admin/v2/logs"})
+    @GetMapping({"/admin/system", "/admin/admins", "/admin/logs"})
     public String adminSystem() {
-        return "redirect:/admin/v2/system";
+        return "redirect:/admin/v2/admins";
     }
 
     @GetMapping({"/reader", "/reader/"})

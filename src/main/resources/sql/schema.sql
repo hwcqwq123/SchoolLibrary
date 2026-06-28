@@ -1,5 +1,31 @@
 -- =========================================================
 -- SchoolLibrary v2 完整数据库脚本
+-- 文件名：schema.sql
+--
+-- 【本次合并】
+-- 1. schema.sql
+-- 2. V2_003_borrow_copy_admin_role.sql
+--
+-- 【执行方式】
+-- source E:/SchoolLibrary/src/main/resources/sql/schema.sql;
+--
+-- 【注意】
+-- 如果 schema.sql 中包含 DROP DATABASE / DROP TABLE / 初始化数据，
+-- 执行本文件会重建或覆盖开发库数据。执行前请先备份重要数据。
+-- =========================================================
+
+-- 【本次修复】直接整合 book_copy 实体书表、实体书编码借阅字段、初始化实体书数据。
+-- 这样只执行 schema.sql 一个文件，也会创建 book_copy 表。
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- =========================================================
+-- Part 1：基础完整数据库 schema.sql
+-- =========================================================
+
+-- =========================================================
+-- SchoolLibrary v2 完整数据库脚本
 -- 文件名：schema-v2-full-combined.sql
 --
 -- 【本次合并】
@@ -79,6 +105,7 @@ DROP TABLE IF EXISTS operation_log;
 DROP TABLE IF EXISTS notice;
 
 DROP TABLE IF EXISTS borrow_record;
+DROP TABLE IF EXISTS book_copy;
 DROP TABLE IF EXISTS book;
 DROP TABLE IF EXISTS book_category;
 DROP TABLE IF EXISTS reader;
@@ -184,12 +211,42 @@ CREATE TABLE book (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='图书信息表';
 
 -- =========================================================
+-- 5. 实体书副本表
+-- =========================================================
+CREATE TABLE book_copy (
+    id INT PRIMARY KEY AUTO_INCREMENT COMMENT '实体书ID',
+    book_id INT NOT NULL COMMENT '图书种类ID',
+    copy_no VARCHAR(64) NOT NULL COMMENT '实体书编码，例如 B2026001-001',
+    shelf_status VARCHAR(32) NOT NULL DEFAULT 'ON_SHELF' COMMENT '实体书状态：ON_SHELF已上架，BORROWED借出中，RETURN_PROCESSING上架中，OFF_SHELF下架，DAMAGED损坏，LOST遗失',
+    location VARCHAR(100) DEFAULT NULL COMMENT '馆藏位置',
+    current_borrow_id INT DEFAULT NULL COMMENT '当前借阅记录ID',
+    return_process_start_time DATETIME DEFAULT NULL COMMENT '进入上架中时间',
+    available_at DATETIME DEFAULT NULL COMMENT '预计自动上架时间',
+    shelf_time DATETIME DEFAULT NULL COMMENT '实际上架时间',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '数据状态：1有效，0无效',
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT NULL COMMENT '更新时间',
+
+    CONSTRAINT fk_book_copy_book FOREIGN KEY(book_id) REFERENCES book(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    UNIQUE KEY uk_book_copy_no(copy_no),
+    INDEX idx_book_copy_book_id(book_id),
+    INDEX idx_book_copy_shelf_status(shelf_status),
+    INDEX idx_book_copy_available_at(available_at),
+    INDEX idx_book_copy_status(status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='实体书副本表';
+
+-- =========================================================
 -- 5. 借阅记录表
 -- =========================================================
 CREATE TABLE borrow_record (
     id INT PRIMARY KEY AUTO_INCREMENT COMMENT '借阅记录ID',
     reader_id INT NOT NULL COMMENT '读者ID',
     book_id INT NOT NULL COMMENT '图书ID',
+    copy_id INT DEFAULT NULL COMMENT '实体书ID',
+    copy_no VARCHAR(64) DEFAULT NULL COMMENT '实体书编码',
 
     -- 旧版字段：旧 BorrowMapper / Service 可能使用
     borrow_time DATETIME DEFAULT NULL COMMENT '借阅时间，旧字段',
@@ -206,6 +263,10 @@ CREATE TABLE borrow_record (
     overdue_days INT NOT NULL DEFAULT 0 COMMENT '逾期天数',
     fine DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '逾期罚款金额',
     fine_status VARCHAR(20) NOT NULL DEFAULT 'NONE' COMMENT '罚款状态：NONE无罚款，UNPAID未缴费，PAID已缴费',
+    borrow_admin_id INT DEFAULT NULL COMMENT '借书办理管理员ID',
+    return_admin_id INT DEFAULT NULL COMMENT '还书办理管理员ID',
+    shelf_admin_id INT DEFAULT NULL COMMENT '上架确认管理员ID',
+    shelf_time DATETIME DEFAULT NULL COMMENT '上架确认时间',
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT NULL COMMENT '更新时间',
 
@@ -217,8 +278,14 @@ CREATE TABLE borrow_record (
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
 
+    CONSTRAINT fk_borrow_copy FOREIGN KEY(copy_id) REFERENCES book_copy(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
     INDEX idx_borrow_reader_id(reader_id),
     INDEX idx_borrow_book_id(book_id),
+    INDEX idx_borrow_copy_id(copy_id),
+    INDEX idx_borrow_copy_no(copy_no),
     INDEX idx_borrow_status(status),
     INDEX idx_borrow_due_time(due_time),
     INDEX idx_borrow_due_date(due_date),
@@ -847,6 +914,84 @@ VALUES
  '管理类', 4, 7, 7, 'C-01',
  NULL, '本书介绍管理学基础理论、组织管理、计划控制等内容。', 0, 0, 1);
 
+-- =========================================================
+-- 【本次新增】初始化实体书副本数据
+-- 说明：
+-- 1. 每一类图书按 total_count 自动生成实体书编码，例如 B2026001-001。
+-- 2. 读者端只查询图书状态；普通管理员按 copy_no 办理借书、还书。
+-- 3. 初始化示例借阅记录对应的实体书会被标记为 BORROWED。
+-- =========================================================
+INSERT INTO book_copy(
+    book_id, copy_no, shelf_status, location, status, shelf_time, create_time
+)
+SELECT
+    b.id AS book_id,
+    CONCAT(b.book_no, '-', LPAD(seq.n, 3, '0')) AS copy_no,
+    'ON_SHELF' AS shelf_status,
+    b.location AS location,
+    1 AS status,
+    NOW() AS shelf_time,
+    NOW() AS create_time
+FROM book b
+JOIN (
+    SELECT ones.n + tens.n * 10 + hundreds.n * 100 + 1 AS n
+    FROM
+        (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) ones
+    CROSS JOIN
+        (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) tens
+    CROSS JOIN
+        (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) hundreds
+) seq ON seq.n <= IFNULL(b.total_count, 0)
+WHERE b.status = 1;
+
+-- 将初始化借阅记录绑定到具体实体书。
+UPDATE borrow_record br
+JOIN book_copy bc ON bc.copy_no = 'B2026001-001'
+SET br.copy_id = bc.id,
+    br.copy_no = bc.copy_no,
+    br.borrow_admin_id = 2
+WHERE br.id = 1;
+
+UPDATE borrow_record br
+JOIN book_copy bc ON bc.copy_no = 'B2026002-001'
+SET br.copy_id = bc.id,
+    br.copy_no = bc.copy_no,
+    br.borrow_admin_id = 2
+WHERE br.id = 2;
+
+-- 初始化借阅中的实体书状态。
+UPDATE book_copy bc
+JOIN borrow_record br ON br.copy_id = bc.id
+SET bc.shelf_status = 'BORROWED',
+    bc.current_borrow_id = br.id,
+    bc.update_time = NOW()
+WHERE br.status = 'BORROWED'
+  AND br.return_date IS NULL
+  AND br.return_time IS NULL;
+
+-- 用实体书状态回写 book 数量。
+UPDATE book b
+SET b.total_count = (
+        SELECT COUNT(1)
+        FROM book_copy bc
+        WHERE bc.book_id = b.id
+          AND bc.status = 1
+    ),
+    b.available_count = (
+        SELECT COUNT(1)
+        FROM book_copy bc
+        WHERE bc.book_id = b.id
+          AND bc.status = 1
+          AND bc.shelf_status = 'ON_SHELF'
+    ),
+    b.update_time = NOW()
+WHERE EXISTS (
+    SELECT 1 FROM book_copy bc WHERE bc.book_id = b.id
+);
+
 INSERT INTO borrow_record(
     id, reader_id, book_id,
     borrow_time, due_time, return_time,
@@ -1091,6 +1236,21 @@ USE school_library;
 
 INSERT INTO operation_log(operator_type, operator_id, operator_name, module, operation, request_url, ip, create_time)
 VALUES('SYSTEM', NULL, '数据库迁移', '数据库迁移', '已执行 v2 业务约束迁移脚本', 'sql/migration/V2_002_business_constraints.sql', 'localhost', NOW());
+
+-- =========================================================
+-- SchoolLibrary v2 完整数据库脚本执行结束
+-- =========================================================
+
+
+-- =========================================================
+-- 【本次新增】执行完成检查
+-- 如果下面三条有结果，说明实体书借阅所需表和字段已经创建成功。
+-- =========================================================
+SHOW TABLES LIKE 'book_copy';
+SHOW COLUMNS FROM borrow_record LIKE 'copy_id';
+SELECT COUNT(*) AS book_copy_count FROM book_copy;
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- =========================================================
 -- SchoolLibrary v2 完整数据库脚本执行结束
