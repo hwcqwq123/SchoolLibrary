@@ -42,7 +42,7 @@
                                 <button class="v2-btn ok" type="submit">保存</button>
                             </form>
                         </td>
-                        <td><a class="v2-btn danger" href="${pageContext.request.contextPath}/admin/v2/categories/disable/${c.id}" onclick="return confirm('确认禁用该分类？')">禁用</a></td>
+                        <td><form action="${pageContext.request.contextPath}/admin/v2/categories/disable/${c.id}"method="post"style="display:inline;"onsubmit="return confirm('确认禁用该分类？')"> <button class="v2-btn danger" type="submit">禁用</button></form></td>
                     </tr>
                 </c:forEach>
                 <c:if test="${empty list}"><tr><td colspan="7" class="v2-empty">暂无分类数据</td></tr></c:if>

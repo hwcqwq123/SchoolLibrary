@@ -475,7 +475,7 @@
         WHERE br.reader_id = #{readerId}
         <choose>
             <when test="history != null and history == 1">
-                AND br.status = 'RETURNED'
+                AND br.status IN ('RETURNED', 'OVERDUE_RETURNED')
             </when>
             <otherwise>
                 AND br.status = 'BORROWED'

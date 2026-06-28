@@ -18,7 +18,14 @@
         <c:forEach items="${list}" var="n"><tr>
             <td>${n.title}</td><td>${n.content}</td><td>${n.publisherName}</td><td><span class="v2-tag ${n.status==1?'ok':'danger'}">${n.status==1?'显示':'隐藏'}</span></td><td>${fn:replace(n.createTime, 'T', ' ')}</td>
             <td><form class="v2-form one" method="post" action="${pageContext.request.contextPath}/admin/v2/notices/update"><input type="hidden" name="id" value="${n.id}"><input class="v2-input" name="title" value="${n.title}"><textarea class="v2-textarea" name="content">${n.content}</textarea><select class="v2-select" name="status"><option value="1" ${n.status==1?'selected':''}>显示</option><option value="0" ${n.status==0?'selected':''}>隐藏</option></select><button class="v2-btn ok" type="submit">保存</button></form></td>
-            <td><a class="v2-btn danger" href="${pageContext.request.contextPath}/admin/v2/notices/delete/${n.id}" onclick="return confirm('确认删除/下线？')">删除</a></td>
+            <td>
+                <form action="${pageContext.request.contextPath}/admin/v2/notices/delete/${n.id}"
+                    method="post"
+                    style="display:inline;"
+                    onsubmit="return confirm('确认删除/下线？')">
+                    <button class="v2-btn danger" type="submit">删除</button>
+                </form>
+            </td>
         </tr></c:forEach>
         <c:if test="${empty list}"><tr><td colspan="7" class="v2-empty">暂无公告</td></tr></c:if>
     </table></section>

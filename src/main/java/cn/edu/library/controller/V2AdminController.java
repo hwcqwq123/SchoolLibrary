@@ -1,9 +1,20 @@
 package cn.edu.library.controller;
 
-import cn.edu.library.dto.V2ActionResult;
-import cn.edu.library.mapper.V2Mapper;
-import cn.edu.library.service.V2BusinessService;
-import cn.edu.library.util.Md5Util;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.lang.reflect.Method;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,19 +25,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.lang.reflect.Method;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
+import cn.edu.library.dto.V2ActionResult;
+import cn.edu.library.mapper.V2Mapper;
+import cn.edu.library.service.V2BusinessService;
 
 /**
  * 管理员端 v2 控制器。
@@ -95,7 +96,7 @@ public class V2AdminController {
         return redirect("redirect:/admin/v2/categories", V2ActionResult.success("分类修改成功"), ra);
     }
 
-    @GetMapping("/categories/disable/{id}")
+    @PostMapping("/categories/disable/{id}")
     public String disableCategory(@PathVariable Integer id, HttpServletRequest request, RedirectAttributes ra) {
         if (id == null || id <= 0) {
             return redirect("redirect:/admin/v2/categories", V2ActionResult.error("INVALID_CATEGORY", "分类 ID 无效"), ra);
@@ -147,7 +148,7 @@ public class V2AdminController {
         return redirect("redirect:/admin/v2/notices", V2ActionResult.success("公告修改成功"), ra);
     }
 
-    @GetMapping("/notices/delete/{id}")
+    @PostMapping("/notices/delete/{id}")
     public String deleteNotice(@PathVariable Integer id, HttpServletRequest request, RedirectAttributes ra) {
         if (id == null || id <= 0) {
             return redirect("redirect:/admin/v2/notices", V2ActionResult.error("INVALID_NOTICE", "公告 ID 无效"), ra);
@@ -197,7 +198,7 @@ public class V2AdminController {
         return "admin/v2-fines";
     }
 
-    @GetMapping("/fines/generate")
+    @PostMapping("/fines/generate")
     public String generateFines(HttpServletRequest request, RedirectAttributes ra) {
         V2ActionResult result = v2BusinessService.generateOverdueFines(
                 currentUserId(request.getSession()), currentUserName(request.getSession()),
@@ -205,7 +206,7 @@ public class V2AdminController {
         return redirect("redirect:/admin/v2/fines", result, ra);
     }
 
-    @GetMapping("/fines/pay/{id}/{borrowRecordId}")
+    @PostMapping("/fines/pay/{id}/{borrowRecordId}")
     public String payFine(@PathVariable Integer id,
                           @PathVariable Integer borrowRecordId,
                           HttpServletRequest request,
@@ -233,7 +234,7 @@ public class V2AdminController {
         return "admin/v2-seats";
     }
 
-    @GetMapping("/seats/cancel/{id}")
+    @PostMapping("/seats/cancel/{id}")
     public String cancelSeat(@PathVariable Integer id, HttpServletRequest request, RedirectAttributes ra) {
         V2ActionResult result = v2BusinessService.cancelSeatReservationByAdmin(id,
                 currentUserId(request.getSession()), currentUserName(request.getSession()),
@@ -333,7 +334,7 @@ public class V2AdminController {
                 V2ActionResult.error("旧入口已封存，请在“管理员管理”页面新增普通管理员。"), ra);
     }
 
-    @GetMapping("/system/admins/disable/{id}")
+    @PostMapping("/system/admins/disable/{id}")
     public String disableAdmin(@PathVariable Integer id, HttpServletRequest request, RedirectAttributes ra) {
         /*
          * 【本次修改】旧管理员禁用入口封存。

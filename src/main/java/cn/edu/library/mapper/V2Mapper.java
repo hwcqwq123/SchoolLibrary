@@ -1,19 +1,16 @@
 package cn.edu.library.mapper;
 
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
 /**
  * v2 通用 Mapper。
- *
- * 【本次修改】
- * 1. 保留原 v2 页面所需全部 Mapper 方法。
- * 2. 新增座位预约、续借、罚款等关键业务校验查询。
- * 3. 这些新增查询使用注解 SQL，避免破坏现有 V2Mapper.xml。
  */
 public interface V2Mapper {
 
@@ -105,33 +102,33 @@ public interface V2Mapper {
                           @Param("reservationDate") String reservationDate,
                           @Param("timeSlotId") Integer timeSlotId);
 
-    /**
-     * 【本次新增】
-     * 判断当前读者在同一日期、同一时段是否已经有有效预约。
-     */
-    @Select("SELECT COUNT(1) FROM seat_reservation " +
-            "WHERE reader_id = #{readerId} " +
-            "AND reservation_date = #{reservationDate} " +
-            "AND time_slot_id = #{timeSlotId} " +
-            "AND status = 1")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM seat_reservation",
+            "WHERE reader_id = #{readerId}",
+            "  AND reservation_date = #{reservationDate}",
+            "  AND time_slot_id = #{timeSlotId}",
+            "  AND status = 1"
+    })
     int countReaderSeatTimeReservation(@Param("readerId") Integer readerId,
                                        @Param("reservationDate") String reservationDate,
                                        @Param("timeSlotId") Integer timeSlotId);
 
-    /**
-     * 【本次新增】
-     * 判断日期 + 时段是否已经结束。
-     */
-    @Select("SELECT COUNT(1) FROM seat_time_slot " +
-            "WHERE id = #{timeSlotId} " +
-            "AND STR_TO_DATE(CONCAT(#{reservationDate}, ' ', end_time), '%Y-%m-%d %H:%i:%s') <= NOW()")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM seat_time_slot",
+            "WHERE id = #{timeSlotId}",
+            "  AND STR_TO_DATE(CONCAT(#{reservationDate}, ' ', end_time), '%Y-%m-%d %H:%i:%s') <= NOW()"
+    })
     int countPastSeatTimeSlot(@Param("reservationDate") String reservationDate,
                               @Param("timeSlotId") Integer timeSlotId);
 
-    /**
-     * 【本次新增】座位是否存在且启用。
-     */
-    @Select("SELECT COUNT(1) FROM library_seat WHERE id = #{seatId} AND status = 1")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM library_seat",
+            "WHERE id = #{seatId}",
+            "  AND status = 1"
+    })
     int countActiveSeat(@Param("seatId") Integer seatId);
 
     int lockSeat(@Param("seatId") Integer seatId,
@@ -208,43 +205,121 @@ public interface V2Mapper {
                    @Param("totalCount") Integer totalCount,
                    @Param("availableCount") Integer availableCount);
 
-    /**
-     * 【本次新增】续借申请前校验：该借阅记录必须属于当前读者且正在借阅中。
-     */
-    @Select("SELECT COUNT(1) FROM borrow_record " +
-            "WHERE id = #{borrowRecordId} " +
-            "AND reader_id = #{readerId} " +
-            "AND status = 'BORROWED'")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM borrow_record",
+            "WHERE id = #{borrowRecordId}",
+            "  AND reader_id = #{readerId}",
+            "  AND status = 'BORROWED'"
+    })
     int countBorrowCanRenew(@Param("borrowRecordId") Integer borrowRecordId,
                             @Param("readerId") Integer readerId);
 
-    /**
-     * 【本次新增】同一借阅记录不能重复提交待审核续借申请。
-     */
-    @Select("SELECT COUNT(1) FROM renew_request " +
-            "WHERE borrow_record_id = #{borrowRecordId} " +
-            "AND status = 'PENDING'")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM renew_request",
+            "WHERE borrow_record_id = #{borrowRecordId}",
+            "  AND status = 'PENDING'"
+    })
     int countPendingRenewRequest(@Param("borrowRecordId") Integer borrowRecordId);
 
-    /**
-     * 【本次新增】管理员审核续借前校验：申请必须仍为待审核状态。
-     */
-    @Select("SELECT COUNT(1) FROM renew_request " +
-            "WHERE id = #{id} " +
-            "AND status = 'PENDING'")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM renew_request",
+            "WHERE id = #{id}",
+            "  AND status = 'PENDING'"
+    })
     int countPendingRenewById(@Param("id") Integer id);
 
-    /**
-     * 【本次新增】罚款缴费前校验：罚款必须存在且未缴费。
-     */
-    @Select("SELECT COUNT(1) FROM fine_record " +
-            "WHERE id = #{id} " +
-            "AND status = 'UNPAID'")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM renew_request",
+            "WHERE id = #{id}",
+            "  AND borrow_record_id = #{borrowRecordId}",
+            "  AND status = 'PENDING'"
+    })
+    int countPendingRenewForBorrow(@Param("id") Integer id,
+                                   @Param("borrowRecordId") Integer borrowRecordId);
+
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM fine_record",
+            "WHERE id = #{id}",
+            "  AND status = 'UNPAID'"
+    })
     int countUnpaidFine(@Param("id") Integer id);
 
-    /**
-     * 【本次新增】借阅记录是否存在。
-     */
-    @Select("SELECT COUNT(1) FROM borrow_record WHERE id = #{borrowRecordId}")
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM fine_record",
+            "WHERE id = #{id}",
+            "  AND borrow_record_id = #{borrowRecordId}",
+            "  AND status = 'UNPAID'"
+    })
+    int countUnpaidFineForBorrow(@Param("id") Integer id,
+                                 @Param("borrowRecordId") Integer borrowRecordId);
+
+    @Select({
+            "SELECT COUNT(1)",
+            "FROM borrow_record",
+            "WHERE id = #{borrowRecordId}"
+    })
     int countBorrowRecord(@Param("borrowRecordId") Integer borrowRecordId);
+
+    @Update({
+            "UPDATE seat_lock",
+            "SET status = 0",
+            "WHERE seat_id = #{seatId}",
+            "  AND reader_id = #{readerId}",
+            "  AND reservation_date = #{reservationDate}",
+            "  AND time_slot_id = #{timeSlotId}",
+            "  AND status = 1"
+    })
+    int releaseSeatLock(@Param("seatId") Integer seatId,
+                        @Param("readerId") Integer readerId,
+                        @Param("reservationDate") String reservationDate,
+                        @Param("timeSlotId") Integer timeSlotId);
+
+    @Insert({
+            "INSERT INTO fine_record(",
+            "    borrow_record_id,",
+            "    borrow_id,",
+            "    reader_id,",
+            "    book_id,",
+            "    overdue_days,",
+            "    amount,",
+            "    status,",
+            "    create_time",
+            ")",
+            "SELECT",
+            "    br.id,",
+            "    br.id,",
+            "    br.reader_id,",
+            "    br.book_id,",
+            "    DATEDIFF(CURDATE(), br.due_date),",
+            "    DATEDIFF(CURDATE(), br.due_date) * 0.50,",
+            "    'UNPAID',",
+            "    NOW()",
+            "FROM borrow_record br",
+            "WHERE br.status = 'BORROWED'",
+            "  AND br.due_date < CURDATE()",
+            "  AND NOT EXISTS (",
+            "      SELECT 1",
+            "      FROM fine_record fr",
+            "      WHERE fr.borrow_record_id = br.id",
+            "  )"
+    })
+    int generateOverdueFinesFinal();
+
+    @Update({
+            "UPDATE borrow_record br",
+            "JOIN fine_record fr ON fr.borrow_record_id = br.id",
+            "SET br.overdue_days = fr.overdue_days,",
+            "    br.fine = fr.amount,",
+            "    br.fine_status = 'UNPAID',",
+            "    br.update_time = NOW()",
+            "WHERE fr.status = 'UNPAID'",
+            "  AND br.status = 'BORROWED'"
+    })
+    int syncBorrowFineStatus();
 }

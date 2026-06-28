@@ -1,19 +1,16 @@
 package cn.edu.library.service.impl;
 
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
 import cn.edu.library.entity.Admin;
 import cn.edu.library.mapper.AdminMapper;
 import cn.edu.library.service.AdminService;
 import cn.edu.library.util.Md5Util;
-import org.springframework.stereotype.Service;
-
-import javax.annotation.Resource;
 
 /**
- * 【本次修改】管理员服务。
- *
- * 修复点：
- * 1. 登录统一走 AdminMapper.login，SQL 中已限制 status = 1。
- * 2. 避免禁用管理员仍可通过 findByUsername + 手动密码比对登录。
+ * 管理员服务。
  */
 @Service
 public class AdminServiceImpl implements AdminService {
@@ -26,11 +23,32 @@ public class AdminServiceImpl implements AdminService {
         if (isBlank(username) || password == null) {
             return null;
         }
+
         return adminMapper.login(username.trim(), password);
     }
 
     @Override
     public boolean changePassword(Integer adminId, String oldPassword, String newPassword) {
+        if (adminId == null || isBlank(oldPassword) || isBlank(newPassword)) {
+            return false;
+        }
+
+        Admin admin = adminMapper.findById(adminId);
+        if (admin == null || !Integer.valueOf(1).equals(admin.getStatus())) {
+            return false;
+        }
+
+        String dbPassword = admin.getPassword();
+        String oldPasswordMd5 = Md5Util.md5(oldPassword);
+
+        boolean oldPasswordMatched =
+                oldPassword.equals(dbPassword)
+                        || oldPasswordMd5.equalsIgnoreCase(dbPassword);
+
+        if (!oldPasswordMatched) {
+            return false;
+        }
+
         return adminMapper.updatePassword(adminId, Md5Util.md5(newPassword)) > 0;
     }
 
